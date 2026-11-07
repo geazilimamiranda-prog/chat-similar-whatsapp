@@ -11,55 +11,69 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS para o Chat Flutuante no Canto Direito e Painel Estilizado
+# Estilização CSS Avançada (Idêntica ao modelo de referência da imagem)
 st.markdown("""
 <style>
-    /* Estilização da Janela de Chat Flutuante Estilo WhatsApp */
-    .floating-chat-container {
+    /* Estilização da Janela de Chat Flutuante no Canto Inferior Direito */
+    .floating-chat-window {
         position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 360px;
+        bottom: 25px;
+        right: 25px;
+        width: 380px;
+        height: 520px;
         background-color: #0b141a;
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        border-radius: 16px;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.45);
         z-index: 999999;
         border: 1px solid #222d34;
+        display: flex;
+        flex-direction: column;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        overflow: hidden;
     }
     
-    .chat-top-header {
+    .chat-header-bar {
         background-color: #202c33;
         color: #e9edef;
-        padding: 12px 16px;
-        border-top-left-radius: 12px;
-        border-top-right-radius: 12px;
+        padding: 14px 18px;
         font-weight: bold;
         font-size: 15px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         border-bottom: 1px solid #2f3b43;
     }
     
-    .user-msg-float {
-        background-color: #005c4b;
-        color: #e9edef;
-        padding: 8px 12px;
-        border-radius: 8px 0px 8px 8px;
-        margin-left: auto;
-        max-width: 85%;
-        font-size: 13px;
+    .chat-messages-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background-color: #0b141a;
     }
     
-    .assistant-msg-float {
+    .msg-user {
+        background-color: #005c4b;
+        color: #e9edef;
+        padding: 9px 13px;
+        border-radius: 10px 0px 10px 10px;
+        margin-left: auto;
+        max-width: 85%;
+        font-size: 13.5px;
+        word-wrap: break-word;
+    }
+    
+    .msg-assistant {
         background-color: #202c33;
         color: #e9edef;
-        padding: 8px 12px;
-        border-radius: 0px 8px 8px 8px;
+        padding: 9px 13px;
+        border-radius: 0px 10px 10px 10px;
         margin-right: auto;
         max-width: 85%;
-        font-size: 13px;
+        font-size: 13.5px;
+        word-wrap: break-word;
     }
 
     .main-title {
@@ -67,6 +81,14 @@ st.markdown("""
         font-weight: bold;
         color: #1f4e79;
         margin-bottom: 5px;
+    }
+
+    /* Ajuste visual dos botões da barra lateral */
+    .stButton button {
+        background-color: #b22222;
+        color: white;
+        border-radius: 6px;
+        font-weight: bold;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -88,7 +110,7 @@ def parse_costs(val):
 # Inicialização de Variáveis de Sessão
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Olá! Como posso ajudar você hoje com o suporte e custos de inversores?"}
+        {"role": "assistant", "content": "Olá! Como posso ajudar você hoje com o suporte de TI e custos de inversores?"}
     ]
 if "df" not in st.session_state:
     st.session_state.df = None
@@ -96,16 +118,16 @@ if "connected_ia" not in st.session_state:
     st.session_state.connected_ia = False
 
 # ==========================================
-# BARRA LATERAL (Conforme modelo de referência)
+# BARRA LATERAL (Idêntica à imagem de referência)
 # ==========================================
 with st.sidebar:
     st.markdown("### Deployment / Modelo:")
-    azure_model = st.text_input("Modelo", value="gpt-4o-mini", label_visibility="collapsed")
+    azure_model = st.text_input("Modelo", value="gpt-4.1-mini", label_visibility="collapsed")
 
     st.markdown("### Persona da IA:")
     persona = st.text_area(
         "Persona", 
-        value="De forma ágil, clara e cordial. Consulte sempre a base anexada para orçamentos, procedimentos e custos.",
+        value="De forma ágil, clara e cordial. Consulte sempre a base anexada para orçamentos, procedimentos e SLAs.",
         height=90,
         label_visibility="collapsed"
     )
@@ -140,7 +162,7 @@ with st.sidebar:
         azure_api_key = st.text_input("API Key", type="password")
         azure_endpoint = st.text_input("End Point", placeholder="https://...")
 
-    if st.button("Conectar IA", type="primary", use_container_width=True):
+    if st.button("Conectar IA", use_container_width=True):
         if azure_api_key and azure_endpoint:
             st.session_state.connected_ia = True
             st.success("IA Conectada com Sucesso!")
@@ -154,114 +176,7 @@ with st.sidebar:
 # ==========================================
 # PAINEL PRINCIPAL (DASHBOARD)
 # ==========================================
-st.markdown('<p class="main-title">📈 Painel Analítico de Manutenção e Custos de Inversores</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-title">📈 Painel Analítico de Manutenção e Serviços de TI</p>', unsafe_allow_html=True)
 st.markdown("Monitorização em tempo real de falhas técnicas, ações corretivas e estimativas financeiras.")
 
-# Verificação segura para evitar erros
 if st.session_state.df is not None:
-    df_main = st.session_state.df.copy()
-
-    # Métricas Principais no Topo
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Total de Itens / Falhas", len(df_main))
-    with c2:
-        if "Custo Medio (R$)" in df_main.columns and not df_main.empty:
-            st.metric("Ticket Médio", f"R$ {df_main['Custo Medio (R$)'].mean():,.2f}")
-        else:
-            st.metric("Ticket Médio", "R$ 0,00")
-    with c3:
-        st.metric("SLA / Tempo Médio", "4.5 h")
-
-    st.divider()
-
-    # Gráficos Analíticos
-    g1, g2 = st.columns(2)
-    with g1:
-        st.markdown("#### Custo Total por Fabricante (R$)")
-        if "Fabricante" in df_main.columns and "Custo Medio (R$)" in df_main.columns:
-            cost_by_brand = df_main.groupby("Fabricante")["Custo Medio (R$)"].sum()
-            st.bar_chart(cost_by_brand, color="#1f4e79")
-        else:
-            st.info("Dados de fabricante indisponíveis.")
-
-    with g2:
-        st.markdown("#### Distribuição de Ocorrências por Marca")
-        if "Fabricante" in df_main.columns:
-            fab_counts = df_main["Fabricante"].value_counts()
-            st.bar_chart(fab_counts, color="#00a884")
-        else:
-            st.info("Dados indisponíveis.")
-
-    st.divider()
-    st.subheader("📋 Tabela Consolidada de Dados")
-    display_cols = [c for c in df_main.columns if not c.startswith("Custo ")]
-    st.dataframe(df_main[display_cols], use_container_width=True, height=350)
-
-else:
-    col_a, col_b, col_c = st.columns(3)
-    with col_a:
-        st.metric("Total de Serviços", "12 itens")
-    with col_b:
-        st.metric("Ticket Médio", "R$ 207.08")
-    with col_c:
-        st.metric("SLA Médio", "5.9 h")
-    st.divider()
-    st.info("👈 **Para começar:** Carregue o arquivo de dados (`.xlsx` ou `.csv`) na barra lateral esquerda para popular o painel e os gráficos.")
-
-# ==========================================
-# CHAT FLUTUANTE NO CANTO DIREITO (Estilo WhatsApp)
-# ==========================================
-st.markdown("""
-<div class="floating-chat-container">
-    <div class="chat-top-header">
-        <span>🎧 Suporte de TI Online</span>
-        <span style="font-size:10px; color: #00a884; margin-left:auto;">● online agora</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown('<div style="position: fixed; bottom: 85px; right: 30px; width: 330px; z-index: 9999999; background: #0b141a; padding: 10px; border-radius: 8px;">', unsafe_allow_html=True)
-
-chat_scroll = st.container(height=260)
-with chat_scroll:
-    for m in st.session_state.messages:
-        if m["role"] == "user":
-            st.markdown(f'<div class="user-msg-float">{m["content"]}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="assistant-msg-float">{m["content"]}</div>', unsafe_allow_html=True)
-
-user_query = st.chat_input("Digite sua dúvida ou código de erro...", key="floating_input")
-
-if user_query:
-    if not st.session_state.connected_ia:
-        st.warning("Conecte a IA primeiro na barra lateral.")
-    else:
-        st.session_state.messages.append({"role": "user", "content": user_query})
-        
-        # Correção da instrução ternária para garantir o else completo
-        context_data = st.session_state.df.to_string() if st.session_state.df is not None else "Sem base ativa."
-        sys_prompt = f"{persona}\n\n--- DADOS DA BASE ---\n{context_data[:100000]}"
-        
-        api_messages = [{"role": "system", "content": sys_prompt}]
-        for m in st.session_state.messages:
-            api_messages.append({"role": m["role"], "content": m["content"]})
-            
-        try:
-            client = AzureOpenAI(
-                api_key=azure_api_key,
-                api_version="2024-02-15-preview",
-                azure_endpoint=azure_endpoint
-            )
-            response = client.chat.completions.create(
-                model=azure_model,
-                messages=api_messages,
-                temperature=0.3
-            )
-            reply = response.choices[0].message.content
-            st.session_state.messages.append({"role": "assistant", "content": reply})
-            st.rerun()
-        except Exception as e:
-            st.error(f"Erro na API Azure: {e}")
-
-st.markdown('</div>', unsafe_allow_html=True)
