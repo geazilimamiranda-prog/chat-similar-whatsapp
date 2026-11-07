@@ -157,7 +157,7 @@ with st.sidebar:
 st.markdown('<p class="main-title">📈 Painel Analítico de Manutenção e Custos de Inversores</p>', unsafe_allow_html=True)
 st.markdown("Monitorização em tempo real de falhas técnicas, ações corretivas e estimativas financeiras.")
 
-# Verificação segura para evitar NameError
+# Verificação segura para evitar erros
 if st.session_state.df is not None:
     df_main = st.session_state.df.copy()
 
@@ -199,7 +199,6 @@ if st.session_state.df is not None:
     st.dataframe(df_main[display_cols], use_container_width=True, height=350)
 
 else:
-    # Estado inicial ilustrativo quando nenhum arquivo foi carregado ainda
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         st.metric("Total de Serviços", "12 itens")
@@ -209,7 +208,6 @@ else:
         st.metric("SLA Médio", "5.9 h")
     st.divider()
     st.info("👈 **Para começar:** Carregue o arquivo de dados (`.xlsx` ou `.csv`) na barra lateral esquerda para popular o painel e os gráficos.")
-
 
 # ==========================================
 # CHAT FLUTUANTE NO CANTO DIREITO (Estilo WhatsApp)
@@ -241,4 +239,29 @@ if user_query:
     else:
         st.session_state.messages.append({"role": "user", "content": user_query})
         
-        context_data = st.session_state.df.to_string() if st.session_state
+        # Correção da instrução ternária para garantir o else completo
+        context_data = st.session_state.df.to_string() if st.session_state.df is not None else "Sem base ativa."
+        sys_prompt = f"{persona}\n\n--- DADOS DA BASE ---\n{context_data[:100000]}"
+        
+        api_messages = [{"role": "system", "content": sys_prompt}]
+        for m in st.session_state.messages:
+            api_messages.append({"role": m["role"], "content": m["content"]})
+            
+        try:
+            client = AzureOpenAI(
+                api_key=azure_api_key,
+                api_version="2024-02-15-preview",
+                azure_endpoint=azure_endpoint
+            )
+            response = client.chat.completions.create(
+                model=azure_model,
+                messages=api_messages,
+                temperature=0.3
+            )
+            reply = response.choices[0].message.content
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro na API Azure: {e}")
+
+st.markdown('</div>', unsafe_allow_html=True)
