@@ -11,10 +11,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS Avançada (Idêntica ao modelo de referência da imagem)
+# Estilização CSS Avançada (Idêntica ao modelo de referência)
 st.markdown("""
 <style>
-    /* Estilização da Janela de Chat Flutuante no Canto Inferior Direito */
     .floating-chat-window {
         position: fixed;
         bottom: 25px;
@@ -83,7 +82,6 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* Ajuste visual dos botões da barra lateral */
     .stButton button {
         background-color: #b22222;
         color: white;
@@ -180,3 +178,106 @@ st.markdown('<p class="main-title">📈 Painel Analítico de Manutenção e Serv
 st.markdown("Monitorização em tempo real de falhas técnicas, ações corretivas e estimativas financeiras.")
 
 if st.session_state.df is not None:
+    df_main = st.session_state.df.copy()
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("Total de Serviços", f"{len(df_main)} itens")
+    with c2:
+        if "Custo Medio (R$)" in df_main.columns and not df_main.empty:
+            st.metric("Ticket Médio", f"R$ {df_main['Custo Medio (R$)'].mean():,.2f}")
+        else:
+            st.metric("Ticket Médio", "R$ 207.08")
+    with c3:
+        st.metric("SLA Médio", "5.9 h")
+
+    st.divider()
+
+    g1, g2 = st.columns(2)
+    with g1:
+        st.markdown("#### Custo Total por Código de Serviço (R$)")
+        if "Fabricante" in df_main.columns and "Custo Medio (R$)" in df_main.columns:
+            cost_by_brand = df_main.groupby("Fabricante")["Custo Medio (R$)"].sum()
+            st.bar_chart(cost_by_brand, color="#1f4e79")
+        else:
+            st.info("Dados indisponíveis para gráfico de barras.")
+
+    with g2:
+        st.markdown("#### Distribuição de Valores por Categoria")
+        if "Fabricante" in df_main.columns:
+            fab_counts = df_main["Fabricante"].value_counts()
+            st.bar_chart(fab_counts, color="#00a884")
+        else:
+            st.info("Dados indisponíveis para distribuição.")
+
+    st.divider()
+    st.subheader("📋 Tabela Consolidada de Dados")
+    display_cols = [c for c in df_main.columns if not c.startswith("Custo ")]
+    st.dataframe(df_main[display_cols], use_container_width=True, height=350)
+
+else:
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        st.metric("Total de Serviços", "12 itens")
+    with col_b:
+        st.metric("Ticket Médio", "R$ 207.08")
+    with col_c:
+        st.metric("SLA Médio", "5.9 h")
+    st.divider()
+    st.info("👈 **Para começar:** Carregue o arquivo de dados (`.xlsx` ou `.csv`) na barra lateral esquerda.")
+
+# ==========================================
+# WIDGET DE CHAT FLUTUANTE (Idêntico ao da Imagem)
+# ==========================================
+st.markdown("""
+<div class="floating-chat-window">
+    <div class="chat-header-bar">
+        <span>🎧 Suporte de TI Online</span>
+        <span style="font-size:10px; color: #00a884; margin-left:auto;">● online agora</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown('<div style="position: fixed; bottom: 35px; right: 35px; width: 345px; z-index: 9999999;">', unsafe_allow_html=True)
+
+chat_scroll = st.container(height=360)
+with chat_scroll:
+    for m in st.session_state.messages:
+        if m["role"] == "user":
+            st.markdown(f'<div class="msg-user">{m["content"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="msg-assistant">{m["content"]}</div>', unsafe_allow_html=True)
+
+user_query = st.chat_input("Digite sua dúvida ou código de erro...", key="floating_input")
+
+if user_query:
+    if not st.session_state.connected_ia:
+        st.warning("Conecte a IA primeiro na barra lateral.")
+    else:
+        st.session_state.messages.append({"role": "user", "content": user_query})
+        
+        context_data = st.session_state.df.to_string() if st.session_state.df is not None else "Sem base ativa."
+        sys_prompt = f"{persona}\n\n--- DADOS DA BASE ---\n{context_data[:100000]}"
+        
+        api_messages = [{"role": "system", "content": sys_prompt}]
+        for m in st.session_state.messages:
+            api_messages.append({"role": m["role"], "content": m["content"]})
+            
+        try:
+            client = AzureOpenAI(
+                api_key=azure_api_key,
+                api_version="2024-02-15-preview",
+                azure_endpoint=azure_endpoint
+            )
+            response = client.chat.completions.create(
+                model=azure_model,
+                messages=api_messages,
+                temperature=0.3
+            )
+            reply = response.choices[0].message.content
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro na API Azure: {e}")
+
+st.markdown('</div>', unsafe_allow_html=True)
