@@ -1,209 +1,156 @@
 import streamlit as st
 import pandas as pd
-from openai import OpenAI
-import io
+from openai import AzureOpenAI
+import re
 
-# Configuração da página em modo Wide (Amplo)
+# Configuração da página
 st.set_page_config(
-    page_title="Dashboard & Chat - Inversores",
-    page_icon="📊",
+    page_title="Gestão de Falhas & Custos - Inversores",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS para o Chat Estilo WhatsApp na Lateral e visual moderno
+# Estilização CSS personalizada (Estilo WhatsApp + Cards Industriais)
 st.markdown("""
 <style>
-    /* Estilização da Barra Lateral (Chat) */
+    /* Fundo da Barra Lateral */
     [data-testid="stSidebar"] {
         background-color: #111b21;
-        padding: 1rem;
     }
     
-    /* Mensagens do utilizador na barra lateral (Verde WhatsApp) */
-    .user-msg-side {
+    /* Balões do Chat (Estilo WhatsApp) */
+    .user-msg {
         background-color: #005c4b;
         color: #e9edef;
-        padding: 8px 12px;
+        padding: 10px 14px;
         border-radius: 8px 0px 8px 8px;
         margin: 6px 0 6px auto;
-        max-width: 85%;
+        max-width: 88%;
         font-size: 13.5px;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    /* Mensagens do assistente na barra lateral (Cinza WhatsApp) */
-    .assistant-msg-side {
+    .assistant-msg {
         background-color: #202c33;
         color: #e9edef;
-        padding: 8px 12px;
+        padding: 10px 14px;
         border-radius: 0px 8px 8px 8px;
         margin: 6px auto 6px 0;
-        max-width: 85%;
+        max-width: 88%;
         font-size: 13.5px;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    /* Títulos do dashboard principal */
-    .main-header {
-        font-size: 26px;
-        font-weight: 700;
+    .chat-header {
+        color: #00a884;
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: 5px;
+    }
+
+    div[data-testid="stMetricValue"] {
+        font-size: 24px;
         color: #1f4e79;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Inicialização de Variáveis de Sessão
+# Função para tratar custos
+def parse_costs(val):
+    if pd.isna(val):
+        return 0.0, 0.0, 0.0
+    val_str = str(val).replace("R$", "").replace(".", "").replace(",", ".").strip()
+    numbers = re.findall(r'\d+\.?\d*', val_str)
+    if len(numbers) >= 2:
+        c_min, c_max = float(numbers[0]), float(numbers[1])
+    elif len(numbers) == 1:
+        c_min = c_max = float(numbers[0])
+    else:
+        c_min = c_max = 0.0
+    return c_min, c_max, (c_min + c_max) / 2.0
+
+# Inicialização da Sessão
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "file_df" not in st.session_state:
-    st.session_state.file_df = None
-if "file_name" not in st.session_state:
-    st.session_state.file_name = None
+if "df" not in st.session_state:
+    st.session_state.df = None
 
 # ==========================================
-# BARRA LATERAL: CHAT ESTILO WHATSAPP
+# BARRA LATERAL: CONFIGURAÇÕES AZURE E CHAT
 # ==========================================
 with st.sidebar:
-    st.markdown("### 💬 Assistente WhatsApp")
-    st.markdown("<p style='font-size:12px; color: #8696a0;'>Especialista em Inversores & Custos</p>", unsafe_allow_html=True)
+    st.markdown('<div class="chat-header">💬 WhatsApp Assistente Técnico</div>', unsafe_allow_html=True)
+    st.caption("Especialista em manutenção e diagnóstico (Azure OpenAI).")
     
-    # Campo para chave de API
-    api_key = st.text_input("OpenAI API Key", type="password", help="Insira a sua chave sk-...")
-    if not api_key and "OPENAI_API_KEY" in st.secrets:
-        api_key = st.secrets["OPENAI_API_KEY"]
+    st.markdown("---")
+    st.markdown("#### ⚙️ Credenciais Azure OpenAI")
+    azure_api_key = st.text_input("API Key", type="password", help="Chave de API da Azure OpenAI")
+    azure_endpoint = st.text_input("End Point", placeholder="https://seu-recurso.openai.azure.com/", help="URL do Endpoint da Azure")
+    azure_model = st.text_input("Modelo (Deployment Name)", value="gpt-4o-mini", help="Nome do deployment configurado no Azure")
 
-    st.divider()
-    
-    # Upload de Ficheiro
-    st.markdown("#### 📂 Carregar Base de Dados")
-    uploaded_file = st.file_uploader("Envie XLSX, CSV ou TXT", type=["xlsx", "csv", "txt"])
+    st.markdown("---")
+    uploaded_file = st.file_uploader("📂 Carregar Base (.xlsx, .csv)", type=["xlsx", "csv"])
     
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith('.xlsx'):
-                st.session_state.file_df = pd.read_excel(uploaded_file)
-            elif uploaded_file.name.endswith('.csv'):
-                st.session_state.file_df = pd.read_csv(uploaded_file)
+                try:
+                    df_temp = pd.read_excel(uploaded_file, header=3)
+                    if "Fabricante" not in df_temp.columns:
+                        df_temp = pd.read_excel(uploaded_file)
+                except:
+                    df_temp = pd.read_excel(uploaded_file)
             else:
-                content = uploaded_file.read().decode("utf-8")
-                st.session_state.file_df = pd.DataFrame({"Conteúdo": [content]})
-                
-            st.session_state.file_name = uploaded_file.name
-            st.success(f"Carregado: {uploaded_file.name}")
-        except Exception as e:
-            st.error(f"Erro ao ler ficheiro: {e}")
-            
-    st.divider()
-    
-    # Caixa de Histórico de Conversas
-    st.markdown("#### Conversa")
-    chat_container = st.container(height=350)
-    
-    with chat_container:
-        for msg in st.session_state.messages:
-            if msg["role"] == "user":
-                st.markdown(f'<div class="user-msg-side">{msg["content"]}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="assistant-msg-side">{msg["content"]}</div>', unsafe_allow_html=True)
+                df_temp = pd.read_csv(uploaded_file)
 
-    # Input de Mensagem do Chat na Lateral
-    if prompt := st.chat_input("Pergunte algo sobre os dados..."):
-        if not api_key:
-            st.warning("Insira a API Key acima.")
+            if "Custo Total Estimado (R$)" in df_temp.columns:
+                parsed = df_temp["Custo Total Estimado (R$)"].apply(parse_costs)
+                df_temp["Custo Min (R$)"] = [p[0] for p in parsed]
+                df_temp["Custo Max (R$)"] = [p[1] for p in parsed]
+                df_temp["Custo Medio (R$)"] = [p[2] for p in parsed]
+
+            st.session_state.df = df_temp
+            st.success("Base carregada com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao processar arquivo: {e}")
+
+    st.divider()
+    st.markdown("**Conversa WhatsApp**")
+    chat_box = st.container(height=320)
+    
+    with chat_box:
+        for m in st.session_state.messages:
+            role_class = "user-msg" if m["role"] == "user" else "assistant-msg"
+            st.markdown(f'<div class="{role_class}">{m["content"]}</div>', unsafe_allow_html=True)
+
+    if prompt := st.chat_input("Pergunte sobre um erro ou custo..."):
+        if not azure_api_key or not azure_endpoint:
+            st.warning("Preencha a API Key e o End Point da Azure na barra lateral.")
         else:
             st.session_state.messages.append({"role": "user", "content": prompt})
             
-            df_text = st.session_state.file_df.to_string() if st.session_state.file_df is not None else "Nenhum ficheiro carregado."
+            context_str = st.session_state.df.to_string() if st.session_state.df is not None else "Nenhum arquivo ativo."
             system_prompt = (
-                "Você é um consultor especialista em manutenção industrial e inversores de frequência. "
-                "Responda com base nos dados da planilha fornecida.\n\n"
-                f"--- DADOS ATUAIS ---\n{df_text[:100000]}"
+                "Você é um engenheiro especialista em manutenção industrial e inversores de frequência. "
+                "Responda às dúvidas com base estrita nos dados do guia/planilha fornecido. "
+                "Forneça orientações claras, passos de resolução e estimativas de custo quando solicitado.\n\n"
+                f"--- DADOS DA BASE ---\n{context_str[:120000]}"
             )
             
             api_messages = [{"role": "system", "content": system_prompt}]
             for m in st.session_state.messages:
                 api_messages.append({"role": m["role"], "content": m["content"]})
                 
-            client = OpenAI(api_key=api_key)
             try:
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
+                # Conexão utilizando o cliente AzureOpenAI
+                client = AzureOpenAI(
+                    api_key=azure_api_key,
+                    api_version="2024-02-15-preview",
+                    azure_endpoint=azure_endpoint
+                )
+                
+                res = client.chat.completions.create(
+                    model=azure_model,
                     messages=api_messages,
                     temperature=0.2
-                )
-                bot_reply = response.choices[0].message.content
-                st.session_state.messages.append({"role": "assistant", "content": bot_reply})
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro na API: {e}")
-
-    if st.button("Limpar Chat"):
-        st.session_state.messages = []
-        st.rerun()
-
-# ==========================================
-# ECRÃ PRINCIPAL: DASHBOARD & GRÁFICOS
-# ==========================================
-st.markdown('<p class="main-header">📊 Dashboard Analítico de Inversores e Custos de Manutenção</p>', unsafe_allow_html=True)
-st.markdown("Visualize abaixo as métricas, gráficos de incidência e custos extraídos da sua base de dados industrial.")
-
-if st.session_state.file_df is not None:
-    df = st.session_state.file_df
-    
-    expected_cols = ["Fabricante", "Custo Total Estimado (R$)"]
-    has_cost_data = all(col in df.columns for col in expected_cols)
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total de Falhas Mapeadas", len(df))
-    with col2:
-        if "Fabricante" in df.columns:
-            st.metric("Fabricantes Atendidos", df["Fabricante"].nunique())
-        else:
-            st.metric("Linhas no Ficheiro", len(df))
-    with col3:
-        if has_cost_data:
-            try:
-                # Linha corrigida com o parêntese fechado corretamente
-                costs = df["Custo Total Estimado (R$)"].astype(str).str.split("-").str[0].str.replace(",", ".").str.strip().astype(float)
-                st.metric("Custo Médio Estimado Inicial", f"R$ {costs.mean():,.2f}")
-            except:
-                st.metric("Status dos Dados", "Processado")
-        else:
-            st.metric("Status do Ficheiro", "Carregado com Sucesso")
-
-    st.divider()
-    
-    st.subheader("📈 Análises Visuais")
-    
-    if "Fabricante" in df.columns:
-        col_g1, col_g2 = st.columns(2)
-        
-        with col_g1:
-            st.markdown("#### Falhas por Fabricante")
-            fab_counts = df["Fabricante"].value_counts()
-            st.bar_chart(fab_counts)
-            
-        with col_g2:
-            st.markdown("#### Distribuição de Ocorrências")
-            st.line_chart(fab_counts)
-    else:
-        st.info("O ficheiro enviado não possui a coluna 'Fabricante', mas os dados textuais estão disponíveis para consulta no chat ao lado.")
-
-    st.divider()
-    
-    st.subheader("📋 Tabela Consolidada de Dados")
-    st.dataframe(df, use_container_width=True)
-
-else:
-    st.info("👈 **Para começar:** Carregue o ficheiro Excel (`.xlsx`) ou CSV gerado anteriormente utilizando o botão na barra lateral esquerda.")
-    
-    st.markdown("### O que encontrará no Dashboard:")
-    col_a, col_b, col_c = st.columns(3)
-    with col_a:
-        st.info("**Gráficos Dinâmicos**\n\nGeração automática de gráficos de barras e tendências por fabricante.")
-    with col_b:
-        st.info("**Chat Inteligente**\n\nFaça perguntas na barra lateral baseada no WhatsApp sobre os códigos de erro.")
-    with col_c:
-        st.info("**Controlo de Custos**\n\nAnálise financeira detalhada de peças e serviços para manutenção corretiva.")
