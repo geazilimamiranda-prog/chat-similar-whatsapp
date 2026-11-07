@@ -20,7 +20,7 @@ st.markdown("""
         padding: 1rem;
     }
     
-    /* Mensagens do usuário na barra lateral (Verde WhatsApp) */
+    /* Mensagens do utilizador na barra lateral (Verde WhatsApp) */
     .user-msg-side {
         background-color: #005c4b;
         color: #e9edef;
@@ -69,20 +69,19 @@ with st.sidebar:
     st.markdown("<p style='font-size:12px; color: #8696a0;'>Especialista em Inversores & Custos</p>", unsafe_allow_html=True)
     
     # Campo para chave de API
-    api_key = st.text_input("OpenAI API Key", type="password", help="Insira sua chave sk-...")
+    api_key = st.text_input("OpenAI API Key", type="password", help="Insira a sua chave sk-...")
     if not api_key and "OPENAI_API_KEY" in st.secrets:
         api_key = st.secrets["OPENAI_API_KEY"]
 
     st.divider()
     
-    # Upload de Arquivo
+    # Upload de Ficheiro
     st.markdown("#### 📂 Carregar Base de Dados")
     uploaded_file = st.file_uploader("Envie XLSX, CSV ou TXT", type=["xlsx", "csv", "txt"])
     
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith('.xlsx'):
-                # Lê a planilha do excel gerada anteriormente
                 st.session_state.file_df = pd.read_excel(uploaded_file)
             elif uploaded_file.name.endswith('.csv'):
                 st.session_state.file_df = pd.read_csv(uploaded_file)
@@ -93,11 +92,11 @@ with st.sidebar:
             st.session_state.file_name = uploaded_file.name
             st.success(f"Carregado: {uploaded_file.name}")
         except Exception as e:
-            st.error(f"Erro ao ler arquivo: {e}")
+            st.error(f"Erro ao ler ficheiro: {e}")
             
     st.divider()
     
-    # Caixa de Histórico de Conversas (Rolável na lateral)
+    # Caixa de Histórico de Conversas
     st.markdown("#### Conversa")
     chat_container = st.container(height=350)
     
@@ -115,8 +114,7 @@ with st.sidebar:
         else:
             st.session_state.messages.append({"role": "user", "content": prompt})
             
-            # Contexto do arquivo atual
-            df_text = st.session_state.file_df.to_string() if st.session_state.file_df is not None else "Nenhum arquivo carregado."
+            df_text = st.session_state.file_df.to_string() if st.session_state.file_df is not None else "Nenhum ficheiro carregado."
             system_prompt = (
                 "Você é um consultor especialista em manutenção industrial e inversores de frequência. "
                 "Responda com base nos dados da planilha fornecida.\n\n"
@@ -145,7 +143,7 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# TELA PRINCIPAL: DASHBOARD & GRÁFICOS
+# ECRÃ PRINCIPAL: DASHBOARD & GRÁFICOS
 # ==========================================
 st.markdown('<p class="main-header">📊 Dashboard Analítico de Inversores e Custos de Manutenção</p>', unsafe_allow_html=True)
 st.markdown("Visualize abaixo as métricas, gráficos de incidência e custos extraídos da sua base de dados industrial.")
@@ -153,11 +151,9 @@ st.markdown("Visualize abaixo as métricas, gráficos de incidência e custos ex
 if st.session_state.file_df is not None:
     df = st.session_state.file_df
     
-    # Verifica se é a planilha padrão de guias e custos (contém colunas esperadas)
     expected_cols = ["Fabricante", "Custo Total Estimado (R$)"]
     has_cost_data = all(col in df.columns for col in expected_cols)
     
-    # Métricas Principais no Topo
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Total de Falhas Mapeadas", len(df))
@@ -165,9 +161,49 @@ if st.session_state.file_df is not None:
         if "Fabricante" in df.columns:
             st.metric("Fabricantes Atendidos", df["Fabricante"].nunique())
         else:
-            st.metric("Linhas no Arquivo", len(df))
+            st.metric("Linhas no Ficheiro", len(df))
     with col3:
         if has_cost_data:
-            # Limpa e calcula a média dos custos estimados se possível
             try:
-                costs = df["Custo Total Estimado (R$)"].astype(str).str.split("-").str[0].str.replace(",", "."
+                # Linha corrigida com o parêntese fechado corretamente
+                costs = df["Custo Total Estimado (R$)"].astype(str).str.split("-").str[0].str.replace(",", ".").str.strip().astype(float)
+                st.metric("Custo Médio Estimado Inicial", f"R$ {costs.mean():,.2f}")
+            except:
+                st.metric("Status dos Dados", "Processado")
+        else:
+            st.metric("Status do Ficheiro", "Carregado com Sucesso")
+
+    st.divider()
+    
+    st.subheader("📈 Análises Visuais")
+    
+    if "Fabricante" in df.columns:
+        col_g1, col_g2 = st.columns(2)
+        
+        with col_g1:
+            st.markdown("#### Falhas por Fabricante")
+            fab_counts = df["Fabricante"].value_counts()
+            st.bar_chart(fab_counts)
+            
+        with col_g2:
+            st.markdown("#### Distribuição de Ocorrências")
+            st.line_chart(fab_counts)
+    else:
+        st.info("O ficheiro enviado não possui a coluna 'Fabricante', mas os dados textuais estão disponíveis para consulta no chat ao lado.")
+
+    st.divider()
+    
+    st.subheader("📋 Tabela Consolidada de Dados")
+    st.dataframe(df, use_container_width=True)
+
+else:
+    st.info("👈 **Para começar:** Carregue o ficheiro Excel (`.xlsx`) ou CSV gerado anteriormente utilizando o botão na barra lateral esquerda.")
+    
+    st.markdown("### O que encontrará no Dashboard:")
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        st.info("**Gráficos Dinâmicos**\n\nGeração automática de gráficos de barras e tendências por fabricante.")
+    with col_b:
+        st.info("**Chat Inteligente**\n\nFaça perguntas na barra lateral baseada no WhatsApp sobre os códigos de erro.")
+    with col_c:
+        st.info("**Controlo de Custos**\n\nAnálise financeira detalhada de peças e serviços para manutenção corretiva.")
