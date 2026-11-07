@@ -113,7 +113,7 @@ with st.sidebar:
             st.session_state.df = df_temp
             st.success("Base carregada com sucesso!")
         except Exception as e:
-            st.error(f"Erro ao processar arquivo: {e}")
+            st.error(f"Erro ao processar ficheiro: {e}")
 
     st.divider()
     st.markdown("**Conversa WhatsApp**")
@@ -130,27 +130,6 @@ with st.sidebar:
         else:
             st.session_state.messages.append({"role": "user", "content": prompt})
             
-            context_str = st.session_state.df.to_string() if st.session_state.df is not None else "Nenhum arquivo ativo."
+            context_str = st.session_state.df.to_string() if st.session_state.df is not None else "Nenhum ficheiro ativo."
             system_prompt = (
-                "Você é um engenheiro especialista em manutenção industrial e inversores de frequência. "
-                "Responda às dúvidas com base estrita nos dados do guia/planilha fornecido. "
-                "Forneça orientações claras, passos de resolução e estimativas de custo quando solicitado.\n\n"
-                f"--- DADOS DA BASE ---\n{context_str[:120000]}"
-            )
-            
-            api_messages = [{"role": "system", "content": system_prompt}]
-            for m in st.session_state.messages:
-                api_messages.append({"role": m["role"], "content": m["content"]})
-                
-            try:
-                # Conexão utilizando o cliente AzureOpenAI
-                client = AzureOpenAI(
-                    api_key=azure_api_key,
-                    api_version="2024-02-15-preview",
-                    azure_endpoint=azure_endpoint
-                )
-                
-                res = client.chat.completions.create(
-                    model=azure_model,
-                    messages=api_messages,
-                    temperature=0.2
+                "Você é
