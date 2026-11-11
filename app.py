@@ -1,8 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
-import tempfile
-from langchain_community.document_loaders import CSVLoader
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
@@ -11,7 +10,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
-# Configuração da página em modo wide para acomodar o painel e o chat
+# Configuração da página
 st.set_page_config(page_title="Painel Analítico e Suporte de Manutenção", layout="wide", page_icon="📊")
 
 # ==========================================
@@ -27,11 +26,10 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS CUSTOMIZADA (LAYOUT DA IMAGEM)
+# 2. ESTILIZAÇÃO CSS CUSTOMIZADA
 # ==========================================
 st.markdown("""
 <style>
-    /* Estilo do botão Conectar IA */
     div.stButton > button:first-child {
         background-color: #a82020;
         color: white;
@@ -53,7 +51,6 @@ with st.sidebar:
     st.markdown("### Deployment / Modelo:")
     azure_deployment = st.text_input("Deployment", value="gpt-4.1-mini", label_visibility="collapsed")
     
-    # Credenciais ocultas / configuráveis padrão para Azure
     azure_api_key = st.text_input("Azure OpenAI API Key", type="password", value=os.getenv("AZURE_OPENAI_API_KEY", ""))
     azure_endpoint = st.text_input("Azure Endpoint", value=os.getenv("AZURE_OPENAI_ENDPOINT", ""))
     azure_api_version = "2024-02-15-preview"
@@ -79,34 +76,29 @@ with st.sidebar:
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Botão Conectar IA
     if st.button("🚀 Conectar IA", use_container_width=True):
         st.session_state.chat_active = True
         st.success("IA Conectada com sucesso!")
 
-    # Checkbox de Novo Chat correspondente à imagem
     novo_chat = st.checkbox("Novo Chat")
     if novo_chat:
         st.session_state.messages = []
         st.rerun()
 
 # ==========================================
-# 4. PROCESSAMENTO DO RAG (BASE CSV)
+# 4. PROCESSAMENTO DO RAG DIRETO DO PANDAS (SEM ERROS DE LOADER)
 # ==========================================
-def process_csv_file(file, api_key, endpoint, api_version, emb_deployment):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
-        tmp_file.write(file.getvalue())
-        file_path = tmp_file.name
-
-    loader = CSVLoader(file_path, encoding="utf-8")
-    docs = loader.load()
-    os.remove(file_path)
-
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-    splits = text_splitter.split_documents(docs)
-
-    # Caso chaves da Azure não estejam preenchidas, usa mock/evita erro estrutural se testando local sem chaves reais
+def process_dataframe_to_vectorstore(df, api_key, endpoint, api_version, emb_deployment):
     try:
+        # Transforma cada linha do dataframe em um documento de texto para o RAG
+        docs = []
+        for _, row in df.iterrows():
+            row_text = ", ".join([f"{col}: {val}" for col, val in row.items()])
+            docs.append(Document(page_content=row_text))
+
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+        splits = text_splitter.split_documents(docs)
+
         embeddings = AzureOpenAIEmbeddings(
             azure_deployment=emb_deployment,
             azure_endpoint=endpoint,
@@ -115,12 +107,13 @@ def process_csv_file(file, api_key, endpoint, api_version, emb_deployment):
         )
         vectorstore = FAISS.from_documents(splits, embeddings)
         return vectorstore
-    except Exception:
+    except Exception as e:
+        st.error(f"Erro ao gerar embeddings na Azure: {e}")
         return None
 
-if uploaded_file and st.session_state.vectorstore is None and azure_api_key:
-    st.session_state.vectorstore = process_csv_file(
-        uploaded_file, azure_api_key, azure_endpoint, azure_api_version, embedding_deployment
+if st.session_state.df is not None and st.session_state.vectorstore is None and azure_api_key:
+    st.session_state.vectorstore = process_dataframe_to_vectorstore(
+        st.session_state.df, azure_api_key, azure_endpoint, azure_api_version, embedding_deployment
     )
 
 # ==========================================
@@ -151,7 +144,7 @@ if st.session_state.df is not None:
         if len(numeric_cols) > 0:
             st.bar_chart(df[numeric_cols[0]])
         else:
-            st.info("O CSV não possui colunas numéricas para exibir o gráfico de barras.")
+            st.info("O CSV não possui colunas numéricas para exibir o gráfico.")
             
     with c2:
         st.markdown("#### Distribuição de Valores por Categoria")
@@ -160,7 +153,6 @@ if st.session_state.df is not None:
         else:
             st.area_chart(df[numeric_cols[0]] if len(numeric_cols) > 0 else pd.Series([10, 20, 30]))
 else:
-    # Métricas padrão estáticas caso nenhum arquivo seja enviado inicialmente (idêntico ao layout da print)
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Total de Serviços", "12 itens")
@@ -180,17 +172,15 @@ else:
         st.area_chart(pd.DataFrame({"Valores": [10, 25, 40, 20, 50]}))
 
 # ==========================================
-# 6. WIDGET DE CHAT FLUTUANTE (LATERAL DIREITA)
+# 6. WIDGET DE CHAT FLUTUANTE
 # ==========================================
 st.markdown("---")
 st.sidebar.markdown("### 💬 Chat de Suporte")
 
-# Simulando a janela de chat flutuante da direita utilizando um container expansível ou sidebar dedicada ao chat
 with st.container():
     st.markdown("---")
     st.subheader("🤖 Suporte de TI Online (Chat Ativo)")
     
-    # Exibição do histórico de mensagens do chat
     chat_container = st.container()
     with chat_container:
         for msg in st.session_state.messages:
@@ -198,11 +188,9 @@ with st.container():
             with st.chat_essage(role):
                 st.markdown(msg.content)
 
-    # Input do chat
     if user_input := st.chat_input("Digite sua dúvida ou código de erro..."):
         st.session_state.messages.append(HumanMessage(content=user_input))
         
-        # Resposta da IA via LCEL / Azure OpenAI se configurado
         answer = "No momento, estou operando em modo de interface visual. Conecte sua chave da Azure OpenAI na barra lateral para interagir com o modelo e a base RAG."
         
         if azure_api_key and st.session_state.vectorstore:
