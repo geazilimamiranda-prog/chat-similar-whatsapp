@@ -80,7 +80,7 @@ with st.sidebar:
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Botão de Conexão
+    # Botão de Conexão com validação
     if st.button("🚀 Conectar IA", use_container_width=True):
         if not azure_api_key or not azure_endpoint:
             st.error("Preencha a API Key e o Endpoint da Azure!")
@@ -88,9 +88,10 @@ with st.sidebar:
             st.session_state.chat_active = True
             st.success("IA da Oficina Conectada com Sucesso!")
 
-    novo_chat = st.checkbox("Novo Chat")
-    if novo_chat:
+    # Botão de Novo Chat alterado de Checkbox para Botão Real
+    if st.button("🔄 Novo Chat", use_container_width=True):
         st.session_state.messages = []
+        st.success("Novo chat iniciado!")
         st.rerun()
 
 # ==========================================
@@ -104,51 +105,4 @@ def process_dataframe_to_vectorstore(df, api_key, endpoint, api_version, emb_dep
             docs.append(Document(page_content=row_text))
 
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-        splits = text_splitter.split_documents(docs)
-
-        embeddings = AzureOpenAIEmbeddings(
-            azure_deployment=emb_deployment,
-            azure_endpoint=endpoint,
-            api_key=api_key,
-            api_version=api_version
-        )
-        vectorstore = FAISS.from_documents(splits, embeddings)
-        return vectorstore
-    except Exception as e:
-        st.error(f"Erro ao gerar embeddings na Azure: {e}")
-        return None
-
-if st.session_state.df is not None and st.session_state.vectorstore is None and azure_api_key:
-    st.session_state.vectorstore = process_dataframe_to_vectorstore(
-        st.session_state.df, azure_api_key, azure_endpoint, azure_api_version, embedding_deployment
-    )
-
-# ==========================================
-# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD)
-# ==========================================
-st.markdown("## 🚗 Painel de Controle e Gestão da Oficina Mecânica")
-
-if st.session_state.df is not None:
-    df = st.session_state.df
-    col1, col2, col3 = st.columns(3)
-    
-    total_ordens = len(df)
-    ticket_medio = df.select_dtypes(include=['number']).mean().mean() if not df.empty else 0.0
-    
-    with col1:
-        st.metric("Ordens de Serviço", f"{total_ordens} O.S.")
-    with col2:
-        st.metric("Ticket Médio (Reparos)", f"R$ {ticket_medio:,.2f}")
-    with col3:
-        st.metric("Tempo Médio de Box", "4.5 h")
-
-    st.markdown("---")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("#### Custo de Peças e Serviços por Código (R$)")
-        numeric_cols = df.select_dtypes(include=['number']).columns
-        if len(numeric_cols) > 0:
-            st.bar_chart(df[numeric_cols[0]])
-        else:
-            st.info("O CSV não possui colunas numéricas para exibir o gráfico.")
+        splits = text_splitter.split_documents
