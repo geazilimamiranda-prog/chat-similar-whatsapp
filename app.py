@@ -86,11 +86,10 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 4. PROCESSAMENTO DO RAG DIRETO DO PANDAS (SEM ERROS DE LOADER)
+# 4. PROCESSAMENTO DO RAG
 # ==========================================
 def process_dataframe_to_vectorstore(df, api_key, endpoint, api_version, emb_deployment):
     try:
-        # Transforma cada linha do dataframe em um documento de texto para o RAG
         docs = []
         for _, row in df.iterrows():
             row_text = ", ".join([f"{col}: {val}" for col, val in row.items()])
