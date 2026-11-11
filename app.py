@@ -19,7 +19,7 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS (PADRÃO)
+# 2. ESTILIZAÇÃO CSS (JANELA FLUTUANTE CENTRALIZADA NA BASE COM HTML)
 # ==========================================
 st.markdown("""
 <style>
@@ -34,6 +34,74 @@ st.markdown("""
     div.stButton > button:hover {
         background-color: #128C7E;
         color: white;
+    }
+
+    /* Janela Flutuante Centralizada na Parte Inferior */
+    .whatsapp-bottom-center-card {
+        position: fixed;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 650px;
+        background-color: #efeae2;
+        border-radius: 12px 12px 8px 8px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        z-index: 999999;
+        overflow: hidden;
+        border: 1px solid #b3aca5;
+    }
+    
+    .whatsapp-bottom-header {
+        background-color: #075E54;
+        color: white;
+        padding: 10px 15px;
+        font-weight: bold;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .whatsapp-bottom-body {
+        padding: 10px 15px;
+        height: 200px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        background-color: #efeae2;
+    }
+
+    .chat-bubble-user {
+        background-color: #dcf8c6;
+        color: #000;
+        padding: 8px 12px;
+        border-radius: 8px 0px 8px 8px;
+        margin: 4px 0;
+        max-width: 75%;
+        align-self: flex-end;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.15);
+        font-size: 13px;
+        word-wrap: break-word;
+    }
+
+    .chat-bubble-ai {
+        background-color: #ffffff;
+        color: #000;
+        padding: 8px 12px;
+        border-radius: 0px 8px 8px 8px;
+        margin: 4px 0;
+        max-width: 75%;
+        align-self: flex-start;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.15);
+        font-size: 13px;
+        word-wrap: break-word;
+    }
+    
+    .whatsapp-bottom-footer {
+        background-color: #f0f0f0;
+        padding: 8px 12px;
+        border-top: 1px solid #ddd;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -53,7 +121,7 @@ with st.sidebar:
     st.markdown("### 🎭 Persona da IA (Oficina):")
     default_persona = (
         "Você é um consultor técnico sênior de uma oficina mecânica automotiva. "
-        "Responda de forma ágil, clara e cordial. Consulte sempre a base de dados de ordens de serviço, "
+        "Responda de forma ágil, clara e cordial estilo WhatsApp. Consulte sempre a base de dados de ordens de serviço, "
         "peças e manutenções para fornecer orçamentos precisos, diagnósticos e prazos."
     )
     persona = st.text_area("Persona", value=default_persona, height=120)
@@ -191,23 +259,47 @@ else:
         ax.axis('equal')
         st.pyplot(fig)
 
-# ==========================================
-# 6. CHAT NATIVO DO STREAMLIT (PÁGINA PRINCIPAL)
-# ==========================================
-st.markdown("---")
-st.markdown("### 💬 Assistente de Atendimento e Diagnóstico da Oficina")
+# Espaçador final para o conteúdo não ficar coberto pelo chat flutuante
+st.markdown("<br><br><br>", unsafe_allow_html=True)
 
-# Exibição do histórico de mensagens usando os componentes nativos do Streamlit
+# ==========================================
+# 6. WIDGET FLUTUANTE CENTRALIZADO NA BASE (HTML + STREAMLIT FORM)
+# ==========================================
+
+# Início do Container HTML Flutuante Centralizado
+st.markdown("""
+<div class="whatsapp-bottom-center-card">
+    <div class="whatsapp-bottom-header">
+        <span>🟢</span> <span>Oficina Mecânica - Assistente WhatsApp</span>
+    </div>
+    <div class="whatsapp-bottom-body">
+""", unsafe_allow_html=True)
+
 if not st.session_state.messages:
-    st.chat_message("assistant").markdown("🤖 Olá! Sou o assistente virtual da oficina. Como posso ajudar com seu veículo ou orçamento hoje?")
+    st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar?</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
-    role = "user" if isinstance(msg, HumanMessage) else "assistant"
-    with st.chat_message(role):
-        st.markdown(msg.content)
+    if isinstance(msg, HumanMessage):
+        st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
 
-# Entrada de chat nativa (posicionada automaticamente na parte inferior da página)
-if user_input := st.chat_input("Digite o sintoma do veículo, código de falha (OBD) ou peça..."):
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Rodapé HTML e Formulário Integrado dentro do card flutuante centralizado
+st.markdown('<div class="whatsapp-bottom-footer">', unsafe_allow_html=True)
+
+with st.form(key="wa_center_form", clear_on_submit=True):
+    col_input, col_send = st.columns([5, 1])
+    with col_input:
+        user_input = st.text_input("Mensagem", placeholder="Digite sua mensagem...", label_visibility="collapsed")
+    with col_send:
+        submit_btn = st.form_submit_button("Enviar", use_container_width=True)
+
+st.markdown('</div></div>', unsafe_allow_html=True)
+
+# Processamento da mensagem enviada pelo usuário
+if submit_btn and user_input:
     st.session_state.messages.append(HumanMessage(content=user_input))
     
     if not azure_api_key or not azure_endpoint:
