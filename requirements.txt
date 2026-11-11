@@ -1,4 +1,8 @@
-streamlit>=1.30.0
-pandas>=2.0.0
-openpyxl>=3.1.0
-openai>=1.10.0
+streamlit
+pandas
+langchain
+langchain-community
+langchain-openai
+langchain-core
+faiss-cpu
+pypdf
