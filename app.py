@@ -45,28 +45,28 @@ st.markdown("""
         bottom: 15px;
         left: 50%;
         transform: translateX(-50%);
-        width: 90%;
-        max-width: 600px;
+        width: 85%;
+        max-width: 550px;
         background-color: #efeae2;
         border-radius: 12px 12px 8px 8px;
         border: 1px solid #b3aca5;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.35);
         z-index: 99999;
         overflow: hidden;
     }
     .whatsapp-header-float {
         background-color: #075E54;
         color: white;
-        padding: 10px 15px;
+        padding: 8px 12px;
         font-weight: bold;
         display: flex;
         align-items: center;
-        gap: 10px;
-        font-size: 15px;
+        gap: 8px;
+        font-size: 14px;
     }
     .whatsapp-scroll-float {
-        padding: 15px;
-        height: 350px;
+        padding: 12px;
+        height: 250px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
@@ -74,38 +74,34 @@ st.markdown("""
     .chat-bubble-user {
         background-color: #dcf8c6;
         color: #000;
-        padding: 10px 14px;
+        padding: 8px 12px;
         border-radius: 8px 0px 8px 8px;
-        margin: 5px 0;
+        margin: 4px 0;
         max-width: 75%;
         align-self: flex-end;
         box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-        font-size: 14px;
+        font-size: 13px;
         word-wrap: break-word;
     }
     .chat-bubble-ai {
         background-color: #ffffff;
         color: #000;
-        padding: 10px 14px;
+        padding: 8px 12px;
         border-radius: 0px 8px 8px 8px;
-        margin: 5px 0;
+        margin: 4px 0;
         max-width: 75%;
         align-self: flex-start;
         box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-        font-size: 14px;
+        font-size: 13px;
         word-wrap: break-word;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. BARRA LATERAL (MENU E CREDENCIAIS)
+# 3. BARRA LATERAL (APENAS CREDENCIAIS E UPLOAD)
 # ==========================================
 with st.sidebar:
-    st.markdown("## 🧭 Navegação")
-    menu = st.radio("Escolha a Página:", ["📊 Painel de Controle (Dashboard)", "💬 Janela Flutuante WhatsApp (IA)"])
-
-    st.markdown("---")
     st.markdown("### 🔑 Credenciais Azure OpenAI:")
     azure_api_key = st.text_input("Azure OpenAI API Key", type="password", value=os.getenv("AZURE_OPENAI_API_KEY", ""))
     azure_endpoint = st.text_input("Azure Endpoint", value=os.getenv("AZURE_OPENAI_ENDPOINT", "https://"), placeholder="https://seu-recurso.openai.azure.com/")
@@ -168,164 +164,162 @@ def buscar_contexto_csv(df, query):
         return df.to_string(index=False)
 
 # ==========================================
-# 5. ROTEAMENTO DAS PÁGINAS DO APLICATIVO
+# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD)
 # ==========================================
+st.markdown("## 🚗 Painel de Controle e Gestão da Oficina Mecânica")
 
-if menu == "📊 Painel de Controle (Dashboard)":
-    st.markdown("## 🚗 Painel de Controle e Gestão da Oficina Mecânica")
+if st.session_state.df is not None:
+    df = st.session_state.df
+    
+    col_servico = "Tipo de Serviço" if "Tipo de Serviço" in df.columns else df.columns[0]
+    col_valor = "Valor do Serviço (R$)" if "Valor do Serviço (R$)" in df.columns else (df.select_dtypes(include=['number']).columns[0] if len(df.select_dtypes(include=['number']).columns) > 0 else None)
 
-    if st.session_state.df is not None:
-        df = st.session_state.df
-        
-        col_servico = "Tipo de Serviço" if "Tipo de Serviço" in df.columns else df.columns[0]
-        col_valor = "Valor do Serviço (R$)" if "Valor do Serviço (R$)" in df.columns else (df.select_dtypes(include=['number']).columns[0] if len(df.select_dtypes(include=['number']).columns) > 0 else None)
+    total_servicos = len(df)
+    ticket_medio = df[col_valor].mean() if col_valor and col_valor in df.columns else 0.0
+    soma_total = df[col_valor].sum() if col_valor and col_valor in df.columns else 0.0
 
-        total_servicos = len(df)
-        ticket_medio = df[col_valor].mean() if col_valor and col_valor in df.columns else 0.0
-        soma_total = df[col_valor].sum() if col_valor and col_valor in df.columns else 0.0
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total de Serviços Cadastrados", f"{total_servicos} itens")
+    with col2:
+        st.metric("Média de Preço dos Serviços", f"R$ {ticket_medio:,.2f}")
+    with col3:
+        st.metric("Valor Total do Portfólio", f"R$ {soma_total:,.2f}")
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total de Serviços Cadastrados", f"{total_servicos} itens")
-        with col2:
-            st.metric("Média de Preço dos Serviços", f"R$ {ticket_medio:,.2f}")
-        with col3:
-            st.metric("Valor Total do Portfólio", f"R$ {soma_total:,.2f}")
-
-        st.markdown("---")
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("#### 🛠️ Valor por Tipo de Serviço (R$)")
-            if col_valor and col_servico in df.columns:
-                chart_data = df.set_index(col_servico)[[col_valor]]
-                st.bar_chart(chart_data)
-            else:
-                st.bar_chart(df.select_dtypes(include=['number']))
-                
-        with c2:
-            st.markdown("#### 🥧 Distribuição de Custos (Gráfico de Pizza)")
-            if col_valor and col_servico in df.columns:
-                fig, ax = plt.subplots(figsize=(6, 6))
-                dados_pizza = df.nlargest(8, col_valor) if len(df) > 8 else df
-                labels = dados_pizza[col_servico].values
-                valores = dados_pizza[col_valor].values
-                colors = plt.cm.tab10.colors[:len(labels)]
-                
-                ax.pie(
-                    valores, 
-                    labels=labels, 
-                    autopct='%1.1f%%', 
-                    startangle=140, 
-                    colors=colors,
-                    textprops={'fontsize': 9}
-                )
-                ax.axis('equal')
-                st.pyplot(fig)
-            else:
-                st.info("Dados insuficientes para gerar o gráfico de pizza.")
-
-        with st.expander("🔍 Visualizar Tabela Completa de Serviços e Peças"):
-            st.dataframe(df, use_container_width=True)
-
-    else:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total de Serviços Cadastrados", "12 itens")
-        with col2:
-            st.metric("Média de Preço dos Serviços", f"R$ 207.08")
-        with col3:
-            st.metric("Valor Total do Portfólio", f"R$ 2,485.00")
-
-        st.markdown("---")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("#### 🛠️ Valor por Tipo de Serviço (R$)")
-            sample_data = pd.DataFrame({
-                "Troca de Óleo": 80, 
-                "Pastilhas de Freio": 120, 
-                "Alinhamento 3D": 150, 
-                "Correia Dentada": 350, 
-                "Embreagem": 450
-            }, index=["Valor (R$)"]).T
-            st.bar_chart(sample_data)
-        with c2:
-            st.markdown("#### 🥧 Distribuição de Custos (Gráfico de Pizza)")
+    st.markdown("---")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("#### 🛠️ Valor por Tipo de Serviço (R$)")
+        if col_valor and col_servico in df.columns:
+            chart_data = df.set_index(col_servico)[[col_valor]]
+            st.bar_chart(chart_data)
+        else:
+            st.bar_chart(df.select_dtypes(include=['number']))
+            
+    with c2:
+        st.markdown("#### 🥧 Distribuição de Custos (Gráfico de Pizza)")
+        if col_valor and col_servico in df.columns:
             fig, ax = plt.subplots(figsize=(6, 6))
-            sample_values = [80, 120, 150, 350, 450]
-            sample_labels = ["Troca de Óleo", "Pastilhas", "Alinhamento", "Correia", "Embreagem"]
-            ax.pie(sample_values, labels=sample_labels, autopct='%1.1f%%', startangle=140, colors=plt.cm.Pastel1.colors)
+            dados_pizza = df.nlargest(8, col_valor) if len(df) > 8 else df
+            labels = dados_pizza[col_servico].values
+            valores = dados_pizza[col_valor].values
+            colors = plt.cm.tab10.colors[:len(labels)]
+            
+            ax.pie(
+                valores, 
+                labels=labels, 
+                autopct='%1.1f%%', 
+                startangle=140, 
+                colors=colors,
+                textprops={'fontsize': 9}
+            )
             ax.axis('equal')
             st.pyplot(fig)
+        else:
+            st.info("Dados insuficientes para gerar o gráfico de pizza.")
 
-elif menu == "💬 Janela Flutuante WhatsApp (IA)":
-    st.markdown("## 💬 Atendimento e Diagnóstico Automotivo via Janela Flutuante")
+    with st.expander("🔍 Visualizar Tabela Completa de Serviços e Peças"):
+        st.dataframe(df, use_container_width=True)
+
+else:
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total de Serviços Cadastrados", "12 itens")
+    with col2:
+        st.metric("Média de Preço dos Serviços", f"R$ 207.08")
+    with col3:
+        st.metric("Valor Total do Portfólio", f"R$ 2,485.00")
+
     st.markdown("---")
-    st.info("💡 A janela de chat flutuante estilo WhatsApp está ativa na parte inferior central da tela. Digite sua mensagem abaixo para interagir.")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("#### 🛠️ Valor por Tipo de Serviço (R$)")
+        sample_data = pd.DataFrame({
+            "Troca de Óleo": 80, 
+            "Pastilhas de Freio": 120, 
+            "Alinhamento 3D": 150, 
+            "Correia Dentada": 350, 
+            "Embreagem": 450
+        }, index=["Valor (R$)"]).T
+        st.bar_chart(sample_data)
+    with c2:
+        st.markdown("#### 🥧 Distribuição de Custos (Gráfico de Pizza)")
+        fig, ax = plt.subplots(figsize=(6, 6))
+        sample_values = [80, 120, 150, 350, 450]
+        sample_labels = ["Troca de Óleo", "Pastilhas", "Alinhamento", "Correia", "Embreagem"]
+        ax.pie(sample_values, labels=sample_labels, autopct='%1.1f%%', startangle=140, colors=plt.cm.Pastel1.colors)
+        ax.axis('equal')
+        st.pyplot(fig)
 
-    # Renderiza a janela flutuante baseada em HTML/CSS na parte inferior central
-    chat_html = f"""
-    <div class="whatsapp-floating-window">
-        <div class="whatsapp-header-float">
-            <span>🟢</span> <span>Oficina Mecânica - Assistente WhatsApp (Flutuante)</span>
-        </div>
-        <div class="whatsapp-scroll-float">
-    """
-    
-    if not st.session_state.messages:
-        chat_html += '<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo ou orçamento hoje?</div>'
+# Espaçador final para o conteúdo não ficar por baixo da janela flutuante
+st.markdown("<br><br><br>", unsafe_allow_html=True)
 
-    for msg in st.session_state.messages:
-        if isinstance(msg, HumanMessage):
-            chat_html += f'<div class="chat-bubble-user">{msg.content}</div>'
-        else:
-            chat_html += f'<div class="chat-bubble-ai">{msg.content}</div>'
-            
-    chat_html += """
-        </div>
+# ==========================================
+# 6. JANELA FLUTUANTE WHATSAPP FIXA NA BASE
+# ==========================================
+chat_html = f"""
+<div class="whatsapp-floating-window">
+    <div class="whatsapp-header-float">
+        <span>🟢</span> <span>Oficina Mecânica - Assistente WhatsApp (Flutuante)</span>
     </div>
-    """
-    st.markdown(chat_html, unsafe_allow_html=True)
+    <div class="whatsapp-scroll-float">
+"""
 
-    # Input do chat nativo do Streamlit posicionado na parte inferior para enviar as mensagens
-    if user_input := st.chat_input("Digite sua mensagem para o WhatsApp da oficina..."):
-        st.session_state.messages.append(HumanMessage(content=user_input))
+if not st.session_state.messages:
+    chat_html += '<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo ou orçamento hoje?</div>'
+
+for msg in st.session_state.messages:
+    if isinstance(msg, HumanMessage):
+        chat_html += f'<div class="chat-bubble-user">{msg.content}</div>'
+    else:
+        chat_html += f'<div class="chat-bubble-ai">{msg.content}</div>'
         
-        if not azure_api_key or not azure_endpoint:
-            answer = "⚠️ Por favor, configure sua API Key e Endpoint da Azure na barra lateral para falar comigo."
-        else:
-            try:
-                llm = AzureChatOpenAI(
-                    azure_deployment=azure_deployment.strip(),
-                    azure_endpoint=azure_endpoint.strip(),
-                    api_key=azure_api_key.strip(),
-                    api_version=azure_api_version,
-                    temperature=0.2
-                )
-                
-                contexto_csv = buscar_contexto_csv(st.session_state.df, user_input)
-                
-                system_prompt = (
-                    f"{persona}\n\n"
-                    f"Utilize os dados da tabela da oficina abaixo para responder de forma direta e amigável:\n"
-                    f"--- CONTEXTO DO CSV ---\n{contexto_csv}\n------------------------"
-                )
-                
-                prompt = ChatPromptTemplate.from_messages([
-                    ("system", system_prompt),
-                    MessagesPlaceholder(variable_name="chat_history"),
-                    ("human", "{input}")
-                ])
-                
-                chain = prompt | llm | StrOutputParser()
-                
-                answer = chain.invoke({
-                    "input": user_input,
-                    "chat_history": st.session_state.messages
-                })
-                
-            except Exception as e:
-                answer = f"❌ Erro de conexão com a Azure OpenAI: `{e}`"
+chat_html += """
+    </div>
+</div>
+"""
+st.markdown(chat_html, unsafe_allow_html=True)
 
-        st.session_state.messages.append(AIMessage(content=answer))
-        st.rerun()
+# Input do chat nativo do Streamlit posicionado na parte inferior para enviar as mensagens
+if user_input := st.chat_input("Digite sua mensagem para o WhatsApp da oficina..."):
+    st.session_state.messages.append(HumanMessage(content=user_input))
+    
+    if not azure_api_key or not azure_endpoint:
+        answer = "⚠️ Por favor, configure sua API Key e Endpoint da Azure na barra lateral para falar comigo."
+    else:
+        try:
+            llm = AzureChatOpenAI(
+                azure_deployment=azure_deployment.strip(),
+                azure_endpoint=azure_endpoint.strip(),
+                api_key=azure_api_key.strip(),
+                api_version=azure_api_version,
+                temperature=0.2
+            )
+            
+            contexto_csv = buscar_contexto_csv(st.session_state.df, user_input)
+            
+            system_prompt = (
+                f"{persona}\n\n"
+                f"Utilize os dados da tabela da oficina abaixo para responder de forma direta e amigável:\n"
+                f"--- CONTEXTO DO CSV ---\n{contexto_csv}\n------------------------"
+            )
+            
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", system_prompt),
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("human", "{input}")
+            ])
+            
+            chain = prompt | llm | StrOutputParser()
+            
+            answer = chain.invoke({
+                "input": user_input,
+                "chat_history": st.session_state.messages
+            })
+            
+        except Exception as e:
+            answer = f"❌ Erro de conexão com a Azure OpenAI: `{e}`"
+
+    st.session_state.messages.append(AIMessage(content=answer))
+    st.rerun()
