@@ -22,7 +22,7 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS (JANELA FLUTUANTE ESTILO WHATSAPP NA PARTE INFERIOR)
+# 2. ESTILIZAÇÃO CSS (JANELA FLUTUANTE INTEGRADA)
 # ==========================================
 st.markdown("""
 <style>
@@ -39,34 +39,34 @@ st.markdown("""
         color: white;
     }
 
-    /* Janela Flutuante Estilo WhatsApp Centralizada na Base */
+    /* Janela Flutuante Estilo WhatsApp Unificada na Base */
     .whatsapp-floating-window {
         position: fixed;
         bottom: 15px;
         left: 50%;
         transform: translateX(-50%);
-        width: 85%;
-        max-width: 550px;
+        width: 90%;
+        max-width: 600px;
         background-color: #efeae2;
-        border-radius: 12px 12px 8px 8px;
+        border-radius: 12px 12px 10px 10px;
         border: 1px solid #b3aca5;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.35);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.4);
         z-index: 99999;
         overflow: hidden;
     }
     .whatsapp-header-float {
         background-color: #075E54;
         color: white;
-        padding: 8px 12px;
+        padding: 10px 15px;
         font-weight: bold;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         font-size: 14px;
     }
     .whatsapp-scroll-float {
         padding: 12px;
-        height: 250px;
+        height: 220px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
@@ -99,7 +99,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. BARRA LATERAL (APENAS CREDENCIAIS E UPLOAD)
+# 3. BARRA LATERAL (CREDENCIAIS E UPLOAD)
 # ==========================================
 with st.sidebar:
     st.markdown("### 🔑 Credenciais Azure OpenAI:")
@@ -256,33 +256,39 @@ else:
 st.markdown("<br><br><br>", unsafe_allow_html=True)
 
 # ==========================================
-# 6. JANELA FLUTUANTE WHATSAPP FIXA NA BASE
+# 6. WIDGET DE CHAT FLUTUANTE INTEGRADO (WHATSAPP)
 # ==========================================
-chat_html = f"""
-<div class="whatsapp-floating-window">
+st.markdown('<div class="whatsapp-floating-window">', unsafe_allow_html=True)
+st.markdown("""
     <div class="whatsapp-header-float">
         <span>🟢</span> <span>Oficina Mecânica - Assistente WhatsApp (Flutuante)</span>
     </div>
     <div class="whatsapp-scroll-float">
-"""
+""", unsafe_allow_html=True)
 
 if not st.session_state.messages:
-    chat_html += '<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo ou orçamento hoje?</div>'
+    st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo ou orçamento hoje?</div>', unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     if isinstance(msg, HumanMessage):
-        chat_html += f'<div class="chat-bubble-user">{msg.content}</div>'
+        st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
     else:
-        chat_html += f'<div class="chat-bubble-ai">{msg.content}</div>'
+        st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
         
-chat_html += """
-    </div>
-</div>
-"""
-st.markdown(chat_html, unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Input do chat nativo do Streamlit posicionado na parte inferior para enviar as mensagens
-if user_input := st.chat_input("Digite sua mensagem para o WhatsApp da oficina..."):
+# Formulário integrado dentro da janela flutuante para unificar input e resposta no mesmo local
+with st.form(key="chat_form", clear_on_submit=True):
+    cols = st.columns([5, 1])
+    with cols[0]:
+        user_input = st.text_input("Mensagem", placeholder="Digite sua mensagem...", label_visibility="collapsed")
+    with cols[1]:
+        submit_button = st.form_submit_button("Enviar", use_container_width=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Processamento do envio da mensagem pelo formulário flutuante
+if submit_button and user_input:
     st.session_state.messages.append(HumanMessage(content=user_input))
     
     if not azure_api_key or not azure_endpoint:
