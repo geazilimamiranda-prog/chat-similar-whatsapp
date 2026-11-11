@@ -1,10 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
-from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnablePassthrough
@@ -18,8 +15,6 @@ st.set_page_config(page_title="Painel de Oficina Mecânica & Assistente IA", lay
 # ==========================================
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "vectorstore" not in st.session_state:
-    st.session_state.vectorstore = None
 if "chat_active" not in st.session_state:
     st.session_state.chat_active = False
 if "df" not in st.session_state:
@@ -56,7 +51,6 @@ with st.sidebar:
     azure_deployment = st.text_input("Deployment", value="gpt-4.1-mini")
     
     azure_api_version = "2024-02-15-preview"
-    embedding_deployment = "text-embedding-ada-002"
 
     st.markdown("---")
     st.markdown("### 🎭 Persona da IA (Oficina):")
@@ -80,7 +74,6 @@ with st.sidebar:
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Botão de Conexão com validação
     if st.button("🚀 Conectar IA", use_container_width=True):
         if not azure_api_key or not azure_endpoint:
             st.error("Preencha a API Key e o Endpoint da Azure!")
@@ -88,41 +81,32 @@ with st.sidebar:
             st.session_state.chat_active = True
             st.success("IA da Oficina Conectada com Sucesso!")
 
-    # Botão de Novo Chat
     if st.button("🔄 Novo Chat", use_container_width=True):
         st.session_state.messages = []
         st.success("Novo chat iniciado!")
         st.rerun()
 
 # ==========================================
-# 4. PROCESSAMENTO DO RAG (BASE DA OFICINA)
+# 4. FUNÇÃO PARA BUSCAR CONTEXTO NO CSV
 # ==========================================
-def process_dataframe_to_vectorstore(df, api_key, endpoint, api_version, emb_deployment):
-    try:
-        docs = []
-        for _, row in df.iterrows():
-            row_text = ", ".join([f"{col}: {val}" for col, val in row.items()])
-            docs.append(Document(page_content=row_text))
-
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-        splits = text_splitter.split_documents(docs)
-
-        embeddings = AzureOpenAIEmbeddings(
-            azure_deployment=emb_deployment,
-            azure_endpoint=endpoint.strip(),
-            api_key=api_key.strip(),
-            api_version=api_version
-        )
-        vectorstore = FAISS.from_documents(splits, embeddings)
-        return vectorstore
-    except Exception as e:
-        st.error(f"Erro ao gerar embeddings na Azure: {e}")
-        return None
-
-if st.session_state.df is not None and st.session_state.vectorstore is None and azure_api_key:
-    st.session_state.vectorstore = process_dataframe_to_vectorstore(
-        st.session_state.df, azure_api_key, azure_endpoint, azure_api_version, embedding_deployment
-    )
+def buscar_contexto_csv(df, query):
+    if df is None or df.empty:
+        return "Nenhuma base de dados carregada."
+    
+    # Procura linhas que contenham termos da pergunta do usuário
+    query_terms = query.lower().split()
+    matched_rows = []
+    
+    for _, row in df.iterrows():
+        row_str = " | ".join([f"{col}: {val}" for col, val in row.items()])
+        if any(term in row_str.lower() for term in query_terms):
+            matched_rows.append(row_str)
+            
+    if matched_rows:
+        return "\n".join(matched_rows[:5])  # Retorna até 5 linhas relevantes
+    else:
+        # Se não achar específico, retorna um resumo geral do CSV
+        return df.to_string(index=False)
 
 # ==========================================
 # 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD)
@@ -214,36 +198,28 @@ with st.container():
                     temperature=0.2
                 )
                 
-                if st.session_state.vectorstore:
-                    retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
-                    system_prompt = f"{persona}\n\nContexto da Oficina:\n{{context}}"
-                    prompt = ChatPromptTemplate.from_messages([
-                        ("system", system_prompt),
-                        MessagesPlaceholder(variable_name="chat_history"),
-                        ("human", "{input}")
-                    ])
-                    
-                    rag_chain = (
-                        {"context": retriever | (lambda docs: "\n\n".join(d.page_content for d in docs)), 
-                         "input": RunnablePassthrough(),
-                         "chat_history": lambda x: st.session_state.messages}
-                        | prompt
-                        | llm
-                        | StrOutputParser()
-                    )
-                    answer = rag_chain.invoke(user_input)
-                else:
-                    prompt = ChatPromptTemplate.from_messages([
-                        ("system", persona),
-                        MessagesPlaceholder(variable_name="chat_history"),
-                        ("human", "{input}")
-                    ])
-                    chain = prompt | llm
-                    response = chain.invoke({
-                        "input": user_input,
-                        "chat_history": st.session_state.messages
-                    })
-                    answer = response.content
+                # Busca contexto diretamente do CSV carregado
+                contexto_csv = buscar_contexto_csv(st.session_state.df, user_input)
+                
+                system_prompt = (
+                    f"{persona}\n\n"
+                    f"Utilize os dados da tabela da oficina abaixo para responder com precisão:\n"
+                    f"--- CONTEXTO DO CSV ---\n{contexto_csv}\n------------------------"
+                )
+                
+                prompt = ChatPromptTemplate.from_messages([
+                    ("system", system_prompt),
+                    MessagesPlaceholder(variable_name="chat_history"),
+                    ("human", "{input}")
+                ])
+                
+                chain = prompt | llm | StrOutputParser()
+                
+                answer = chain.invoke({
+                    "input": user_input,
+                    "chat_history": st.session_state.messages
+                })
+                
             except Exception as e:
                 answer = f"❌ **Erro de comunicação com a Azure OpenAI:** `{e}`"
 
