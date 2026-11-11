@@ -15,17 +15,15 @@ st.set_page_config(page_title="Oficina Mecânica - Gestão & IA", layout="wide",
 # ==========================================
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "chat_active" not in st.session_state:
-    st.session_state.chat_active = False
 if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS (WIDGET FLUTUANTE UNIFICADO)
+# 2. ESTILIZAÇÃO CSS (WIDGET FLUTUANTE 100% INTEGRADO)
 # ==========================================
 st.markdown("""
 <style>
-    /* Estilização dos Botões da Barra Lateral */
+    /* Botões da barra lateral */
     div.stButton > button:first-child {
         background-color: #075E54;
         color: white;
@@ -38,6 +36,11 @@ st.markdown("""
         color: white;
     }
 
+    /* Esconde o input nativo antigo para não duplicar */
+    .stChatInput {
+        display: none !important;
+    }
+
     /* Container Flutuante Unificado (Estilo WhatsApp) */
     .wa-widget-card {
         position: fixed;
@@ -46,10 +49,12 @@ st.markdown("""
         width: 380px;
         background-color: #efeae2;
         border-radius: 12px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         z-index: 999999;
         overflow: hidden;
         border: 1px solid #d1c7bd;
+        display: flex;
+        flex-direction: column;
     }
     
     .wa-widget-header {
@@ -64,12 +69,13 @@ st.markdown("""
     }
 
     .wa-widget-body {
-        padding: 10px;
-        height: 240px;
+        padding: 12px;
+        height: 250px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
         background-color: #efeae2;
+        flex-grow: 1;
     }
 
     .chat-bubble-user {
@@ -77,7 +83,7 @@ st.markdown("""
         color: #000;
         padding: 8px 12px;
         border-radius: 8px 0px 8px 8px;
-        margin: 4px 0;
+        margin: 6px 0;
         max-width: 80%;
         align-self: flex-end;
         box-shadow: 0 1px 1px rgba(0,0,0,0.15);
@@ -90,12 +96,18 @@ st.markdown("""
         color: #000;
         padding: 8px 12px;
         border-radius: 0px 8px 8px 8px;
-        margin: 4px 0;
+        margin: 6px 0;
         max-width: 80%;
         align-self: flex-start;
         box-shadow: 0 1px 1px rgba(0,0,0,0.15);
         font-size: 13px;
         word-wrap: break-word;
+    }
+    
+    .wa-widget-footer {
+        background-color: #f0f0f0;
+        padding: 8px 10px;
+        border-top: 1px solid #ddd;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -137,7 +149,6 @@ with st.sidebar:
         if not azure_api_key or not azure_endpoint:
             st.error("Preencha a API Key e o Endpoint da Azure!")
         else:
-            st.session_state.chat_active = True
             st.success("IA Conectada com Sucesso!")
 
     if st.button("🔄 Novo Chat", use_container_width=True):
@@ -255,41 +266,42 @@ else:
         st.pyplot(fig)
 
 # ==========================================
-# 6. WIDGET FLUTUANTE UNIFICADO (CHATE & INPUT)
+# 6. WIDGET FLUTUANTE UNIFICADO DO WHATSAPP
 # ==========================================
 
-# Início do Container Flutuante Fixo no Canto Inferior Direito
-with st.container():
-    st.markdown("""
-    <div class="wa-widget-card">
-        <div class="wa-widget-header">
-            <span>🟢</span> <span>Oficina Mecânica - Suporte WhatsApp</span>
-        </div>
-        <div class="wa-widget-body">
-    """, unsafe_allow_html=True)
+# Abre o container flutuante principal no canto inferior direito
+st.markdown("""
+<div class="wa-widget-card">
+    <div class="wa-widget-header">
+        <span>🟢</span> <span>Oficina Mecânica - Suporte WhatsApp</span>
+    </div>
+    <div class="wa-widget-body">
+""", unsafe_allow_html=True)
 
-    if not st.session_state.messages:
-        st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar?</div>', unsafe_allow_html=True)
+if not st.session_state.messages:
+    st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar?</div>', unsafe_allow_html=True)
 
-    for msg in st.session_state.messages:
-        if isinstance(msg, HumanMessage):
-            st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
+for msg in st.session_state.messages:
+    if isinstance(msg, HumanMessage):
+        st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-    # Formulário de Envio integrado dentro da base do card flutuante
-    with st.form(key="floating_chat_form", clear_on_submit=True):
-        col_input, col_btn = st.columns([4, 1])
-        with col_input:
-            user_input = st.text_input("Mensagem", placeholder="Digite...", label_visibility="collapsed")
-        with col_btn:
-            submit_btn = st.form_submit_button("Enviar")
-            
-    st.markdown('</div>', unsafe_allow_html=True)
+# Rodapé do card flutuante contendo o formulário de envio unificado
+st.markdown('<div class="wa-widget-footer">', unsafe_allow_html=True)
 
-# Processamento da Mensagem Enviada pelo Formulário Flutuante
+with st.form(key="wa_floating_form", clear_on_submit=True):
+    col_txt, col_btn = st.columns([4, 1])
+    with col_txt:
+        user_input = st.text_input("Mensagem", placeholder="Digite...", label_visibility="collapsed")
+    with col_btn:
+        submit_btn = st.form_submit_button("Enviar", use_container_width=True)
+
+st.markdown('</div></div>', unsafe_allow_html=True)
+
+# Processamento da mensagem enviada dentro da janela flutuante
 if submit_btn and user_input:
     st.session_state.messages.append(HumanMessage(content=user_input))
     
