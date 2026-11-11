@@ -22,20 +22,65 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS CUSTOMIZADA
+# 2. ESTILIZAÇÃO CSS (LAYOUT DO WHATSAPP + BOTÕES)
 # ==========================================
 st.markdown("""
 <style>
+    /* Botão personalizado */
     div.stButton > button:first-child {
-        background-color: #a82020;
+        background-color: #075E54;
         color: white;
         border-radius: 6px;
         font-weight: bold;
         border: none;
     }
     div.stButton > button:hover {
-        background-color: #8a1919;
+        background-color: #128C7E;
         color: white;
+    }
+
+    /* Estilo do Container do Chat do WhatsApp */
+    .whatsapp-container {
+        background-color: #efeae2;
+        border-radius: 10px;
+        padding: 15px;
+        border: 1px solid #ccc;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    .whatsapp-header {
+        background-color: #075E54;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 8px 8px 0 0;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .chat-bubble-user {
+        background-color: #dcf8c6;
+        color: #000;
+        padding: 10px 14px;
+        border-radius: 8px 0px 8px 8px;
+        margin: 5px 0;
+        max-width: 80%;
+        float: right;
+        clear: both;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        font-size: 14px;
+    }
+    .chat-bubble-ai {
+        background-color: #ffffff;
+        color: #000;
+        padding: 10px 14px;
+        border-radius: 0px 8px 8px 8px;
+        margin: 5px 0;
+        max-width: 80%;
+        float: left;
+        clear: both;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        font-size: 14px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -57,7 +102,7 @@ with st.sidebar:
     st.markdown("### 🎭 Persona da IA (Oficina):")
     default_persona = (
         "Você é um consultor técnico sênior de uma oficina mecânica automotiva. "
-        "Responda de forma ágil, clara e cordial. Consulte sempre a base de dados de ordens de serviço, "
+        "Responda de forma ágil, clara e cordial estilo WhatsApp. Consulte sempre a base de dados de ordens de serviço, "
         "peças e manutenções para fornecer orçamentos precisos, diagnósticos e prazos."
     )
     persona = st.text_area("Persona", value=default_persona, height=120)
@@ -144,16 +189,10 @@ if st.session_state.df is not None:
     with c2:
         st.markdown("#### 🥧 Distribuição de Custos (Gráfico de Pizza)")
         if col_valor and col_servico in df.columns:
-            # Criação do gráfico de pizza customizado com Matplotlib
             fig, ax = plt.subplots(figsize=(6, 6))
-            
-            # Pega os dados (se houver muitos itens, exibe os top 8 para não poluir a pizza)
             dados_pizza = df.nlargest(8, col_valor) if len(df) > 8 else df
-            
             labels = dados_pizza[col_servico].values
             valores = dados_pizza[col_valor].values
-            
-            # Paleta de cores moderna e distinta
             colors = plt.cm.tab10.colors[:len(labels)]
             
             ax.pie(
@@ -164,8 +203,7 @@ if st.session_state.df is not None:
                 colors=colors,
                 textprops={'fontsize': 9}
             )
-            ax.axis('equal')  # Garante que a pizza seja desenhada como um círculo
-            
+            ax.axis('equal')
             st.pyplot(fig)
         else:
             st.info("Dados insuficientes para gerar o gráfico de pizza.")
@@ -174,7 +212,6 @@ if st.session_state.df is not None:
         st.dataframe(df, use_container_width=True)
 
 else:
-    # Dados padrão caso nenhum arquivo seja enviado
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Total de Serviços Cadastrados", "12 itens")
@@ -205,27 +242,43 @@ else:
         st.pyplot(fig)
 
 # ==========================================
-# 6. WIDGET DE CHAT FLUTUANTE / SUPORTE MECÂNICO
+# 6. WIDGET DE CHAT ESTILO WHATSAPP
 # ==========================================
 st.markdown("---")
-st.sidebar.markdown("### 💬 Assistente Mecânico IA")
+st.sidebar.markdown("### 💬 Assistente Mecânico WhatsApp")
 
 with st.container():
     st.markdown("---")
-    st.subheader("🛠️ Atendimento e Diagnóstico Automotivo Online")
     
-    chat_container = st.container()
-    with chat_container:
-        for msg in st.session_state.messages:
-            role = "user" if isinstance(msg, HumanMessage) else "assistant"
-            with st.chat_message(role):
-                st.markdown(msg.content)
+    # Cabeçalho visual do WhatsApp
+    st.markdown("""
+        <div class="whatsapp-header">
+            <span>🟢</span> <span>Oficina Mecânica - Atendimento Online (WhatsApp)</span>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Caixa simulando o fundo de conversas do WhatsApp
+    with st.container():
+        st.markdown('<div class="whatsapp-container">', unsafe_allow_html=True)
+        
+        # Mensagem padrão de boas-vindas se o chat estiver vazio
+        if not st.session_state.messages:
+            st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo hoje?</div>', unsafe_allow_html=True)
 
-    if user_input := st.chat_input("Digite o sintoma do veículo, código de falha (OBD) ou peça..."):
+        for msg in st.session_state.messages:
+            if isinstance(msg, HumanMessage):
+                st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
+                
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Input do Chat
+    if user_input := st.chat_input("Digite sua mensagem como no WhatsApp..."):
         st.session_state.messages.append(HumanMessage(content=user_input))
         
         if not azure_api_key or not azure_endpoint:
-            answer = "⚠️ **Atenção:** Por favor, insira a sua **API Key** e o **Endpoint da Azure** na barra lateral e clique em **Conectar IA**."
+            answer = "⚠️ Por favor, configure sua API Key e Endpoint da Azure na barra lateral para falar comigo."
         else:
             try:
                 llm = AzureChatOpenAI(
@@ -240,7 +293,7 @@ with st.container():
                 
                 system_prompt = (
                     f"{persona}\n\n"
-                    f"Utilize os dados da tabela da oficina abaixo para responder com precisão:\n"
+                    f"Utilize os dados da tabela da oficina abaixo para responder de forma direta e amigável:\n"
                     f"--- CONTEXTO DO CSV ---\n{contexto_csv}\n------------------------"
                 )
                 
@@ -258,7 +311,7 @@ with st.container():
                 })
                 
             except Exception as e:
-                answer = f"❌ **Erro de comunicação com a Azure OpenAI:** `{e}`"
+                answer = f"❌ Erro de conexão com a Azure OpenAI: `{e}`"
 
         st.session_state.messages.append(AIMessage(content=answer))
         st.rerun()
