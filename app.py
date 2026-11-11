@@ -88,7 +88,7 @@ with st.sidebar:
             st.session_state.chat_active = True
             st.success("IA da Oficina Conectada com Sucesso!")
 
-    # Botão de Novo Chat alterado de Checkbox para Botão Real
+    # Botão de Novo Chat
     if st.button("🔄 Novo Chat", use_container_width=True):
         st.session_state.messages = []
         st.success("Novo chat iniciado!")
@@ -105,4 +105,126 @@ def process_dataframe_to_vectorstore(df, api_key, endpoint, api_version, emb_dep
             docs.append(Document(page_content=row_text))
 
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-        splits = text_splitter.split_documents
+        splits = text_splitter.split_documents(docs)
+
+        embeddings = AzureOpenAIEmbeddings(
+            azure_deployment=emb_deployment,
+            azure_endpoint=endpoint.strip(),
+            api_key=api_key.strip(),
+            api_version=api_version
+        )
+        vectorstore = FAISS.from_documents(splits, embeddings)
+        return vectorstore
+    except Exception as e:
+        st.error(f"Erro ao gerar embeddings na Azure: {e}")
+        return None
+
+if st.session_state.df is not None and st.session_state.vectorstore is None and azure_api_key:
+    st.session_state.vectorstore = process_dataframe_to_vectorstore(
+        st.session_state.df, azure_api_key, azure_endpoint, azure_api_version, embedding_deployment
+    )
+
+# ==========================================
+# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD)
+# ==========================================
+st.markdown("## 🚗 Painel de Controle e Gestão da Oficina Mecânica")
+
+if st.session_state.df is not None:
+    df = st.session_state.df
+    col1, col2, col3 = st.columns(3)
+    
+    total_ordens = len(df)
+    ticket_medio = df.select_dtypes(include=['number']).mean().mean() if not df.empty else 0.0
+    
+    with col1:
+        st.metric("Ordens de Serviço", f"{total_ordens} O.S.")
+    with col2:
+        st.metric("Ticket Médio (Reparos)", f"R$ {ticket_medio:,.2f}")
+    with col3:
+        st.metric("Tempo Médio de Box", "4.5 h")
+
+    st.markdown("---")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("#### Custo de Peças e Serviços por Código (R$)")
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        if len(numeric_cols) > 0:
+            st.bar_chart(df[numeric_cols[0]])
+        else:
+            st.info("O CSV não possui colunas numéricas para exibir o gráfico.")
+            
+    with c2:
+        st.markdown("#### Fluxo de Entrada por Categoria")
+        if len(numeric_cols) > 1:
+            st.line_chart(df[numeric_cols[:min(2, len(numeric_cols))]])
+        else:
+            st.area_chart(df[numeric_cols[0]] if len(numeric_cols) > 0 else pd.Series([100, 250, 400]))
+else:
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Ordens de Serviço", "28 O.S.")
+    with col2:
+        st.metric("Ticket Médio (Reparos)", "R$ 485.50")
+    with col3:
+        st.metric("Tempo Médio de Box", "4.2 h")
+
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("#### Custo de Peças e Serviços por Código (R$)")
+        sample_data = pd.DataFrame({
+            "Freios e Suspensão": [350, 600, 220, 800, 410], 
+            "Motor e Injeção": [900, 450, 1200, 750, 620]
+        })
+        st.bar_chart(sample_data)
+    with c2:
+        st.markdown("#### Fluxo de Entrada por Categoria")
+        st.area_chart(pd.DataFrame({"Atendimentos": [5, 12, 8, 20, 15]}))
+
+# ==========================================
+# 6. WIDGET DE CHAT FLUTUANTE / SUPORTE MECÂNICO
+# ==========================================
+st.markdown("---")
+st.sidebar.markdown("### 💬 Assistente Mecânico IA")
+
+with st.container():
+    st.markdown("---")
+    st.subheader("🛠️ Atendimento e Diagnóstico Automotivo Online")
+    
+    chat_container = st.container()
+    with chat_container:
+        for msg in st.session_state.messages:
+            role = "user" if isinstance(msg, HumanMessage) else "assistant"
+            with st.chat_message(role):
+                st.markdown(msg.content)
+
+    if user_input := st.chat_input("Digite o sintoma do veículo, código de falha (OBD) ou peça..."):
+        st.session_state.messages.append(HumanMessage(content=user_input))
+        
+        if not azure_api_key or not azure_endpoint:
+            answer = "⚠️ **Atenção:** Por favor, insira a sua **API Key** e o **Endpoint da Azure** na barra lateral e clique em **Conectar IA**."
+        else:
+            try:
+                llm = AzureChatOpenAI(
+                    azure_deployment=azure_deployment.strip(),
+                    azure_endpoint=azure_endpoint.strip(),
+                    api_key=azure_api_key.strip(),
+                    api_version=azure_api_version,
+                    temperature=0.2
+                )
+                
+                if st.session_state.vectorstore:
+                    retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
+                    system_prompt = f"{persona}\n\nContexto da Oficina:\n{{context}}"
+                    prompt = ChatPromptTemplate.from_messages([
+                        ("system", system_prompt),
+                        MessagesPlaceholder(variable_name="chat_history"),
+                        ("human", "{input}")
+                    ])
+                    
+                    rag_chain = (
+                        {"context": retriever | (lambda docs: "\n\n".join(d.page_content for d in docs)), 
+                         "input": RunnablePassthrough(),
+                         "chat_history": lambda x: st.session_state.messages}
+                        | prompt
