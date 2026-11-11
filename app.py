@@ -10,8 +10,8 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
-# Configuração da página
-st.set_page_config(page_title="Painel Analítico e Suporte de Manutenção", layout="wide", page_icon="📊")
+# Configuração da página em modo wide
+st.set_page_config(page_title="Painel de Oficina Mecânica & Assistente IA", layout="wide", page_icon="🔧")
 
 # ==========================================
 # 1. INICIALIZAÇÃO DO ESTADO DA SESSÃO
@@ -57,14 +57,16 @@ with st.sidebar:
     embedding_deployment = "text-embedding-ada-002"
 
     st.markdown("---")
-    st.markdown("### Persona da IA:")
+    st.markdown("### Persona da IA (Oficina):")
     default_persona = (
-        "forma ágil, clara e cordial. Consulte sempre a base anexada para orçamentos, procedimentos e SLAs."
+        "Você é um consultor técnico sênior de uma oficina mecânica automotiva. "
+        "Responda de forma ágil, clara e cordial. Consulte sempre a base de dados de ordens de serviço, "
+        "peças e manutenções para fornecer orçamentos precisos, diagnósticos e prazos."
     )
-    persona = st.text_area("Persona", value=default_persona, height=100, label_visibility="collapsed")
+    persona = st.text_area("Persona", value=default_persona, height=120, label_visibility="collapsed")
 
     st.markdown("---")
-    st.markdown("### Upload da Base (CSV para Dashboard + Chat):")
+    st.markdown("### Upload da Base (CSV da Oficina):")
     uploaded_file = st.file_uploader("Upload CSV", type=["csv"], label_visibility="collapsed")
 
     if uploaded_file:
@@ -78,7 +80,7 @@ with st.sidebar:
     
     if st.button("🚀 Conectar IA", use_container_width=True):
         st.session_state.chat_active = True
-        st.success("IA Conectada com sucesso!")
+        st.success("IA da Oficina Conectada!")
 
     novo_chat = st.checkbox("Novo Chat")
     if novo_chat:
@@ -86,7 +88,7 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 4. PROCESSAMENTO DO RAG
+# 4. PROCESSAMENTO DO RAG (BASE DA OFICINA)
 # ==========================================
 def process_dataframe_to_vectorstore(df, api_key, endpoint, api_version, emb_deployment):
     try:
@@ -116,29 +118,29 @@ if st.session_state.df is not None and st.session_state.vectorstore is None and 
     )
 
 # ==========================================
-# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD)
+# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD DA OFICINA)
 # ==========================================
-st.markdown("## 📊 Painel Analítico de Manutenção e Serviços de TI")
+st.markdown("## 🚗 Painel de Controle e Gestão da Oficina Mecânica")
 
 if st.session_state.df is not None:
     df = st.session_state.df
     col1, col2, col3 = st.columns(3)
     
-    total_servicos = len(df)
+    total_ordens = len(df)
     ticket_medio = df.select_dtypes(include=['number']).mean().mean() if not df.empty else 0.0
     
     with col1:
-        st.metric("Total de Serviços", f"{total_servicos} itens")
+        st.metric("Ordens de Serviço", f"{total_ordens} O.S.")
     with col2:
-        st.metric("Ticket Médio", f"R$ {ticket_medio:,.2f}")
+        st.metric("Ticket Médio (Reparos)", f"R$ {ticket_medio:,.2f}")
     with col3:
-        st.metric("SLA Médio", "5.9 h")
+        st.metric("Tempo Médio de Box", "4.5 h")
 
     st.markdown("---")
     
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("#### Custo Total por Código de Serviço (R$)")
+        st.markdown("#### Custo de Peças e Serviços por Código (R$)")
         numeric_cols = df.select_dtypes(include=['number']).columns
         if len(numeric_cols) > 0:
             st.bar_chart(df[numeric_cols[0]])
@@ -146,39 +148,43 @@ if st.session_state.df is not None:
             st.info("O CSV não possui colunas numéricas para exibir o gráfico.")
             
     with c2:
-        st.markdown("#### Distribuição de Valores por Categoria")
+        st.markdown("#### Fluxo de Entrada por Categoria (Motor / Suspensão / Freios)")
         if len(numeric_cols) > 1:
             st.line_chart(df[numeric_cols[:min(2, len(numeric_cols))]])
         else:
-            st.area_chart(df[numeric_cols[0]] if len(numeric_cols) > 0 else pd.Series([10, 20, 30]))
+            st.area_chart(df[numeric_cols[0]] if len(numeric_cols) > 0 else pd.Series([100, 250, 400]))
 else:
+    # Dados fictícios padrão focados em oficina para visualização inicial
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Total de Serviços", "12 itens")
+        st.metric("Ordens de Serviço", "28 O.S.")
     with col2:
-        st.metric("Ticket Médio", "R$ 207.08")
+        st.metric("Ticket Médio (Reparos)", "R$ 485.50")
     with col3:
-        st.metric("SLA Médio", "5.9 h")
+        st.metric("Tempo Médio de Box", "4.2 h")
 
     st.markdown("---")
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("#### Custo Total por Código de Serviço (R$)")
-        sample_data = pd.DataFrame({"Hardware": [250, 300, 150, 600, 110], "Software": [100, 80, 130, 120, 90]})
+        st.markdown("#### Custo de Peças e Serviços por Código (R$)")
+        sample_data = pd.DataFrame({
+            "Freios e Suspensão": [350, 600, 220, 800, 410], 
+            "Motor e Injeção": [900, 450, 1200, 750, 620]
+        })
         st.bar_chart(sample_data)
     with c2:
-        st.markdown("#### Distribuição de Valores por Categoria")
-        st.area_chart(pd.DataFrame({"Valores": [10, 25, 40, 20, 50]}))
+        st.markdown("#### Fluxo de Entrada por Categoria")
+        st.area_chart(pd.DataFrame({"Atendimentos": [5, 12, 8, 20, 15]}))
 
 # ==========================================
-# 6. WIDGET DE CHAT FLUTUANTE
+# 6. WIDGET DE CHAT FLUTUANTE / SUPORTE MECÂNICO
 # ==========================================
 st.markdown("---")
-st.sidebar.markdown("### 💬 Chat de Suporte")
+st.sidebar.markdown("### 💬 Assistente Mecânico IA")
 
 with st.container():
     st.markdown("---")
-    st.subheader("🤖 Suporte de TI Online (Chat Ativo)")
+    st.subheader("🛠️ Atendimento e Diagnóstico Automotivo Online")
     
     chat_container = st.container()
     with chat_container:
@@ -187,10 +193,10 @@ with st.container():
             with st.chat_essage(role):
                 st.markdown(msg.content)
 
-    if user_input := st.chat_input("Digite sua dúvida ou código de erro..."):
+    if user_input := st.chat_input("Digite o sintoma do veículo, código de falha (OBD) ou peça..."):
         st.session_state.messages.append(HumanMessage(content=user_input))
         
-        answer = "No momento, estou operando em modo de interface visual. Conecte sua chave da Azure OpenAI na barra lateral para interagir com o modelo e a base RAG."
+        answer = "Olá! Insira suas credenciais da Azure OpenAI na barra lateral e conecte a IA para consultar o manual técnico e as ordens de serviço da oficina."
         
         if azure_api_key and st.session_state.vectorstore:
             try:
@@ -203,7 +209,7 @@ with st.container():
                 )
                 retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
                 
-                system_prompt = f"{persona}\n\nContexto:\n{{context}}"
+                system_prompt = f"{persona}\n\nContexto da Oficina:\n{{context}}"
                 prompt = ChatPromptTemplate.from_messages([
                     ("system", system_prompt),
                     MessagesPlaceholder(variable_name="chat_history"),
@@ -220,7 +226,7 @@ with st.container():
                 )
                 answer = rag_chain.invoke(user_input)
             except Exception as e:
-                answer = f"Erro ao consultar o modelo Azure: {e}"
+                answer = f"Erro ao processar consulta na Azure: {e}"
 
         st.session_state.messages.append(AIMessage(content=answer))
         st.rerun()
