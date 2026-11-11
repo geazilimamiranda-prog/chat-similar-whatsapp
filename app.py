@@ -36,11 +36,11 @@ st.markdown("""
         color: white;
     }
 
-    /* Janela Flutuante Centralizada na Parte Inferior Direita / Centro */
+    /* Janela Flutuante Fixa no Canto Inferior Direito */
     .wa-floating-box {
         position: fixed;
         bottom: 15px;
-        right: 40px;
+        right: 25px;
         width: 380px;
         background-color: #efeae2;
         border-radius: 12px;
@@ -98,7 +98,7 @@ st.markdown("""
         word-wrap: break-word;
     }
     
-    /* Ajustes visuais para o formulário encaixar no rodapé do chat */
+    /* Ajustes visuais para o formulário encaixar perfeitamente no rodapé da caixa */
     [data-testid="stForm"] {
         background-color: #f0f0f0 !important;
         padding: 8px !important;
@@ -149,7 +149,6 @@ with st.sidebar:
         else:
             st.success("IA Conectada com Sucesso!")
 
-    # Botão Novo Chat corrigido para limpar o estado corretamente
     if st.button("🔄 Novo Chat", use_container_width=True):
         st.session_state.messages = []
         st.success("Novo chat iniciado!")
@@ -239,9 +238,9 @@ else:
     with col1:
         st.metric("Total de Serviços Cadastrados", "12 itens")
     with col2:
-        st.metric("Média de Preço dos Serviços", f"R$ 207.08")
+        st.metric("Média de Preço dos Serviços", "R$ 207.08")
     with col3:
-        st.metric("Valor Total do Portfólio", f"R$ 2,485.00")
+        st.metric("Valor Total do Portfólio", "R$ 2,485.00")
 
     st.markdown("---")
     c1, c2 = st.columns(2)
@@ -268,7 +267,7 @@ else:
 # 6. RENDERIZAÇÃO DA JANELA FLUTUANTE UNIFICADA (WHATSAPP)
 # ==========================================
 
-# Abre o container fixo flutuante
+# Abre o container principal que engloba TUDO (cabeçalho, mensagens e input)
 st.markdown("""
 <div class="wa-floating-box">
     <div class="wa-box-header">
@@ -288,7 +287,7 @@ for msg in st.session_state.messages:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Formulário nativo do Streamlit encaixado no rodapé da janela flutuante
+# Formulário nativo do Streamlit inserido logo abaixo do corpo do chat, ainda dentro da caixa flutuante
 with st.form(key="wa_native_form", clear_on_submit=True):
     col_input, col_send = st.columns([4, 1])
     with col_input:
@@ -296,6 +295,7 @@ with st.form(key="wa_native_form", clear_on_submit=True):
     with col_send:
         submit_btn = st.form_submit_button("Enviar", use_container_width=True)
 
+# Fecha a div principal .wa-floating-box englobando todo o componente flutuante
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Processamento da mensagem enviada pelo formulário integrado
