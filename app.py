@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
 # Configuração da página em modo wide
@@ -22,11 +21,11 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS (JANELA FLUTUANTE WHATSAPP COMPACTA)
+# 2. ESTILIZAÇÃO CSS (WIDGET FLUTUANTE UNIFICADO)
 # ==========================================
 st.markdown("""
 <style>
-    /* Estilização dos Botões Globais */
+    /* Estilização dos Botões da Barra Lateral */
     div.stButton > button:first-child {
         background-color: #075E54;
         color: white;
@@ -39,7 +38,7 @@ st.markdown("""
         color: white;
     }
 
-    /* Container Flutuante estilo Widget de WhatsApp */
+    /* Container Flutuante Unificado (Estilo WhatsApp) */
     .wa-widget-card {
         position: fixed;
         bottom: 20px;
@@ -65,8 +64,8 @@ st.markdown("""
     }
 
     .wa-widget-body {
-        padding: 12px;
-        height: 260px;
+        padding: 10px;
+        height: 240px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
@@ -256,30 +255,42 @@ else:
         st.pyplot(fig)
 
 # ==========================================
-# 6. JANELA FLUTUANTE DO WHATSAPP (CANTO INFERIOR)
+# 6. WIDGET FLUTUANTE UNIFICADO (CHATE & INPUT)
 # ==========================================
 
-st.markdown("""
-<div class="wa-widget-card">
-    <div class="wa-widget-header">
-        <span>🟢</span> <span>Oficina Mecânica - Suporte WhatsApp</span>
-    </div>
-    <div class="wa-widget-body">
-""", unsafe_allow_html=True)
+# Início do Container Flutuante Fixo no Canto Inferior Direito
+with st.container():
+    st.markdown("""
+    <div class="wa-widget-card">
+        <div class="wa-widget-header">
+            <span>🟢</span> <span>Oficina Mecânica - Suporte WhatsApp</span>
+        </div>
+        <div class="wa-widget-body">
+    """, unsafe_allow_html=True)
 
-if not st.session_state.messages:
-    st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar?</div>', unsafe_allow_html=True)
+    if not st.session_state.messages:
+        st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar?</div>', unsafe_allow_html=True)
 
-for msg in st.session_state.messages:
-    if isinstance(msg, HumanMessage):
-        st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
+    for msg in st.session_state.messages:
+        if isinstance(msg, HumanMessage):
+            st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
 
-st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Entrada do chat no estilo nativo posicionado na base
-if user_input := st.chat_input("Digite sua mensagem para o WhatsApp da oficina..."):
+    # Formulário de Envio integrado dentro da base do card flutuante
+    with st.form(key="floating_chat_form", clear_on_submit=True):
+        col_input, col_btn = st.columns([4, 1])
+        with col_input:
+            user_input = st.text_input("Mensagem", placeholder="Digite...", label_visibility="collapsed")
+        with col_btn:
+            submit_btn = st.form_submit_button("Enviar")
+            
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Processamento da Mensagem Enviada pelo Formulário Flutuante
+if submit_btn and user_input:
     st.session_state.messages.append(HumanMessage(content=user_input))
     
     if not azure_api_key or not azure_endpoint:
