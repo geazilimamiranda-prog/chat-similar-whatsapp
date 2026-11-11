@@ -19,11 +19,11 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS (WIDGET FLUTUANTE 100% INTEGRADO)
+# 2. ESTILIZAÇÃO CSS (JANELA FLUTUANTE DO WHATSAPP)
 # ==========================================
 st.markdown("""
 <style>
-    /* Botões da barra lateral */
+    /* Estilização dos Botões da Barra Lateral */
     div.stButton > button:first-child {
         background-color: #075E54;
         color: white;
@@ -36,13 +36,8 @@ st.markdown("""
         color: white;
     }
 
-    /* Esconde o input nativo antigo para não duplicar */
-    .stChatInput {
-        display: none !important;
-    }
-
-    /* Container Flutuante Unificado (Estilo WhatsApp) */
-    .wa-widget-card {
+    /* Posicionamento Fixo da Janela Flutuante no Canto Inferior Direito */
+    .wa-floating-container {
         position: fixed;
         bottom: 20px;
         right: 30px;
@@ -53,11 +48,9 @@ st.markdown("""
         z-index: 999999;
         overflow: hidden;
         border: 1px solid #d1c7bd;
-        display: flex;
-        flex-direction: column;
     }
     
-    .wa-widget-header {
+    .wa-header {
         background-color: #075E54;
         color: white;
         padding: 12px 16px;
@@ -68,14 +61,13 @@ st.markdown("""
         gap: 8px;
     }
 
-    .wa-widget-body {
-        padding: 12px;
-        height: 250px;
+    .wa-body {
+        padding: 10px;
+        height: 260px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
         background-color: #efeae2;
-        flex-grow: 1;
     }
 
     .chat-bubble-user {
@@ -83,7 +75,7 @@ st.markdown("""
         color: #000;
         padding: 8px 12px;
         border-radius: 8px 0px 8px 8px;
-        margin: 6px 0;
+        margin: 4px 0;
         max-width: 80%;
         align-self: flex-end;
         box-shadow: 0 1px 1px rgba(0,0,0,0.15);
@@ -96,7 +88,7 @@ st.markdown("""
         color: #000;
         padding: 8px 12px;
         border-radius: 0px 8px 8px 8px;
-        margin: 6px 0;
+        margin: 4px 0;
         max-width: 80%;
         align-self: flex-start;
         box-shadow: 0 1px 1px rgba(0,0,0,0.15);
@@ -104,9 +96,9 @@ st.markdown("""
         word-wrap: break-word;
     }
     
-    .wa-widget-footer {
+    .wa-footer {
         background-color: #f0f0f0;
-        padding: 8px 10px;
+        padding: 8px 12px;
         border-top: 1px solid #ddd;
     }
 </style>
@@ -266,16 +258,16 @@ else:
         st.pyplot(fig)
 
 # ==========================================
-# 6. WIDGET FLUTUANTE UNIFICADO DO WHATSAPP
+# 6. WIDGET FLUTUANTE 100% INTEGRADO (WHATSAPP)
 # ==========================================
 
-# Abre o container flutuante principal no canto inferior direito
+# Renderiza a estrutura HTML fixa do card no canto inferior direito
 st.markdown("""
-<div class="wa-widget-card">
-    <div class="wa-widget-header">
+<div class="wa-floating-container">
+    <div class="wa-header">
         <span>🟢</span> <span>Oficina Mecânica - Suporte WhatsApp</span>
     </div>
-    <div class="wa-widget-body">
+    <div class="wa-body">
 """, unsafe_allow_html=True)
 
 if not st.session_state.messages:
@@ -289,19 +281,19 @@ for msg in st.session_state.messages:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Rodapé do card flutuante contendo o formulário de envio unificado
-st.markdown('<div class="wa-widget-footer">', unsafe_allow_html=True)
+# Rodapé do card contendo o formulário de envio perfeitamente encaixado
+st.markdown('<div class="wa-footer">', unsafe_allow_html=True)
 
-with st.form(key="wa_floating_form", clear_on_submit=True):
-    col_txt, col_btn = st.columns([4, 1])
-    with col_txt:
+with st.form(key="wa_widget_form", clear_on_submit=True):
+    col_input, col_send = st.columns([4, 1])
+    with col_input:
         user_input = st.text_input("Mensagem", placeholder="Digite...", label_visibility="collapsed")
-    with col_btn:
-        submit_btn = st.form_submit_button("Enviar", use_container_width=True)
+    with col_send:
+        submit_btn = st.form_submit_button("Enviar")
 
 st.markdown('</div></div>', unsafe_allow_html=True)
 
-# Processamento da mensagem enviada dentro da janela flutuante
+# Processamento da mensagem enviada pelo formulário integrado
 if submit_btn and user_input:
     st.session_state.messages.append(HumanMessage(content=user_input))
     
