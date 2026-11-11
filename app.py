@@ -18,13 +18,6 @@ if "messages" not in st.session_state:
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# Captura de input via query parameter para simular envio no HTML unificado
-query_params = st.query_params
-if "user_msg" in query_params:
-    user_input_val = query_params["user_msg"]
-    if user_input_val and (not st.session_state.messages or st.session_state.messages[-1].content != user_input_val):
-        st.session_state.messages.append(HumanMessage(content=user_input_val))
-
 # ==========================================
 # 2. ESTILIZAÇÃO CSS (JANELA FLUTUANTE UNIFICADA)
 # ==========================================
@@ -43,13 +36,12 @@ st.markdown("""
         color: white;
     }
 
-    /* Janela Flutuante Centralizada na Parte Inferior */
+    /* Janela Flutuante Centralizada na Parte Inferior Direita / Centro */
     .wa-floating-box {
         position: fixed;
         bottom: 15px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 420px;
+        right: 40px;
+        width: 380px;
         background-color: #efeae2;
         border-radius: 12px;
         box-shadow: 0 8px 30px rgba(0,0,0,0.5);
@@ -106,35 +98,14 @@ st.markdown("""
         word-wrap: break-word;
     }
     
-    .wa-box-footer {
-        background-color: #f0f0f0;
-        padding: 8px 10px;
-        border-top: 1px solid #ddd;
-        display: flex;
-        gap: 6px;
-    }
-
-    .wa-input {
-        flex-grow: 1;
-        padding: 8px 12px;
-        border-radius: 20px;
-        border: 1px solid #ccc;
-        outline: none;
-        font-size: 13px;
-    }
-
-    .wa-send-btn {
-        background-color: #075E54;
-        color: white;
-        border: none;
-        padding: 8px 14px;
-        border-radius: 20px;
-        font-weight: bold;
-        cursor: pointer;
-        font-size: 13px;
-    }
-    .wa-send-btn:hover {
-        background-color: #128C7E;
+    /* Ajustes visuais para o formulário encaixar no rodapé do chat */
+    [data-testid="stForm"] {
+        background-color: #f0f0f0 !important;
+        padding: 8px !important;
+        border: none !important;
+        border-top: 1px solid #ddd !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -178,10 +149,10 @@ with st.sidebar:
         else:
             st.success("IA Conectada com Sucesso!")
 
+    # Botão Novo Chat corrigido para limpar o estado corretamente
     if st.button("🔄 Novo Chat", use_container_width=True):
         st.session_state.messages = []
         st.success("Novo chat iniciado!")
-        st.query_params.clear()
         st.rerun()
 
 # ==========================================
@@ -293,19 +264,46 @@ else:
         ax.axis('equal')
         st.pyplot(fig)
 
-# Espaçador final
-st.markdown("<br><br><br>", unsafe_allow_html=True)
+# ==========================================
+# 6. RENDERIZAÇÃO DA JANELA FLUTUANTE UNIFICADA (WHATSAPP)
+# ==========================================
 
-# ==========================================
-# 6. PROCESSAMENTO DE IA QUANDO HÁ MENSAGEM NOVA
-# ==========================================
-if "user_msg" in query_params:
-    user_input_val = query_params["user_msg"]
-    # Remove o parâmetro para evitar loop
-    st.query_params.clear()
+# Abre o container fixo flutuante
+st.markdown("""
+<div class="wa-floating-box">
+    <div class="wa-box-header">
+        <span>🟢</span> <span>Oficina Mecânica - Assistente WhatsApp</span>
+    </div>
+    <div class="wa-box-body">
+""", unsafe_allow_html=True)
+
+if not st.session_state.messages:
+    st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar?</div>', unsafe_allow_html=True)
+
+for msg in st.session_state.messages:
+    if isinstance(msg, HumanMessage):
+        st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Formulário nativo do Streamlit encaixado no rodapé da janela flutuante
+with st.form(key="wa_native_form", clear_on_submit=True):
+    col_input, col_send = st.columns([4, 1])
+    with col_input:
+        user_input = st.text_input("Mensagem", placeholder="Digite sua mensagem...", label_visibility="collapsed")
+    with col_send:
+        submit_btn = st.form_submit_button("Enviar", use_container_width=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Processamento da mensagem enviada pelo formulário integrado
+if submit_btn and user_input:
+    st.session_state.messages.append(HumanMessage(content=user_input))
     
     if not azure_api_key or not azure_endpoint:
-        answer = "⚠️ Por favor, configure sua API Key e Endpoint da Azure na barra lateral."
+        answer = "⚠️ Por favor, configure sua API Key e Endpoint da Azure na barra lateral para falar comigo."
     else:
         try:
             llm = AzureChatOpenAI(
@@ -315,77 +313,30 @@ if "user_msg" in query_params:
                 api_version=azure_api_version,
                 temperature=0.2
             )
-            contexto_csv = buscar_contexto_csv(st.session_state.df, user_input_val)
+            
+            contexto_csv = buscar_contexto_csv(st.session_state.df, user_input)
+            
             system_prompt = (
                 f"{persona}\n\n"
                 f"Utilize os dados da tabela da oficina abaixo para responder de forma direta e amigável:\n"
                 f"--- CONTEXTO DO CSV ---\n{contexto_csv}\n------------------------"
             )
+            
             prompt = ChatPromptTemplate.from_messages([
                 ("system", system_prompt),
                 MessagesPlaceholder(variable_name="chat_history"),
                 ("human", "{input}")
             ])
+            
             chain = prompt | llm | StrOutputParser()
+            
             answer = chain.invoke({
-                "input": user_input_val,
-                "chat_history": st.session_state.messages[:-1] # exclui a atual momentaneamente para o histórico
+                "input": user_input,
+                "chat_history": st.session_state.messages
             })
+            
         except Exception as e:
             answer = f"❌ Erro de conexão com a Azure OpenAI: `{e}`"
 
     st.session_state.messages.append(AIMessage(content=answer))
     st.rerun()
-
-# ==========================================
-# 7. RENDERIZAÇÃO DA JANELA FLUTUANTE 100% UNIFICADA (HTML)
-# ==========================================
-chat_history_html = ""
-if not st.session_state.messages:
-    chat_history_html += '<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar?</div>'
-
-for msg in st.session_state.messages:
-    if isinstance(msg, HumanMessage):
-        chat_history_html += f'<div class="chat-bubble-user">{msg.content}</div>'
-    else:
-        chat_history_html += f'<div class="chat-bubble-ai">{msg.content}</div>'
-
-# Widget completo estruturado em HTML e JavaScript para envio interno unificado
-whatsapp_widget_code = f"""
-<div class="wa-floating-box">
-    <div class="wa-box-header">
-        <span>🟢</span> <span>Oficina Mecânica - Assistente WhatsApp</span>
-    </div>
-    <div class="wa-box-body" id="wa-scroll-area">
-        {chat_history_html}
-    </div>
-    <div class="wa-box-footer">
-        <input type="text" id="wa-input-field" class="wa-input" placeholder="Digite sua mensagem..." />
-        <button class="wa-send-btn" onclick="sendWhatsAppMsg()">Enviar</button>
-    </div>
-</div>
-
-<script>
-    // Mantém o scroll sempre no final das mensagens
-    var scrollArea = document.getElementById("wa-scroll-area");
-    scrollArea.scrollTop = scrollArea.scrollHeight;
-
-    // Envio ao pressionar Enter
-    document.getElementById("wa-input-field").addEventListener("keypress", function(event) {{
-        if (event.key === "Enter") {{
-            sendWhatsAppMsg();
-        }}
-    }});
-
-    function sendWhatsAppMsg() {{
-        var val = document.getElementById("wa-input-field").value;
-        if (val.trim() !== "") {{
-            const url = new URL(window.location.href);
-            url.searchParams.set("user_msg", val);
-            window.location.href = url.toString();
-        }}
-    }}
-</script>
-"""
-
-st.markdown(whatsapp_widget_code, unsafe_allow_html=True)
