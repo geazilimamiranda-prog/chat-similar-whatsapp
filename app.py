@@ -154,7 +154,6 @@ if st.session_state.df is not None:
         else:
             st.area_chart(df[numeric_cols[0]] if len(numeric_cols) > 0 else pd.Series([100, 250, 400]))
 else:
-    # Dados fictícios padrão focados em oficina para visualização inicial
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Ordens de Serviço", "28 O.S.")
@@ -190,7 +189,7 @@ with st.container():
     with chat_container:
         for msg in st.session_state.messages:
             role = "user" if isinstance(msg, HumanMessage) else "assistant"
-            with st.chat_essage(role):
+            with st.chat_message(role):  # <--- CORRIGIDO AQUI (st.chat_message)
                 st.markdown(msg.content)
 
     if user_input := st.chat_input("Digite o sintoma do veículo, código de falha (OBD) ou peça..."):
