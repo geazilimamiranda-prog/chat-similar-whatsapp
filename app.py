@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
@@ -107,15 +108,13 @@ def buscar_contexto_csv(df, query):
         return df.to_string(index=False)
 
 # ==========================================
-# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD ESPECÍFICO)
+# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD)
 # ==========================================
 st.markdown("## 🚗 Painel de Controle e Gestão da Oficina Mecânica")
 
-# Se o usuário carregou o CSV de serviços de oficina personalizado
 if st.session_state.df is not None:
     df = st.session_state.df
     
-    # Identifica colunas relevantes do CSV de serviços gerado anteriormente
     col_servico = "Tipo de Serviço" if "Tipo de Serviço" in df.columns else df.columns[0]
     col_valor = "Valor do Serviço (R$)" if "Valor do Serviço (R$)" in df.columns else (df.select_dtypes(include=['number']).columns[0] if len(df.select_dtypes(include=['number']).columns) > 0 else None)
 
@@ -137,18 +136,39 @@ if st.session_state.df is not None:
     with c1:
         st.markdown("#### 🛠️ Valor por Tipo de Serviço (R$)")
         if col_valor and col_servico in df.columns:
-            # Gráfico indexado pelo nome do serviço para clareza absoluta
             chart_data = df.set_index(col_servico)[[col_valor]]
             st.bar_chart(chart_data)
         else:
             st.bar_chart(df.select_dtypes(include=['number']))
             
     with c2:
-        st.markdown("#### 📈 Distribuição de Custos (Comparativo)")
+        st.markdown("#### 🥧 Distribuição de Custos (Gráfico de Pizza)")
         if col_valor and col_servico in df.columns:
-            st.line_chart(df.set_index(col_servico)[[col_valor]])
+            # Criação do gráfico de pizza customizado com Matplotlib
+            fig, ax = plt.subplots(figsize=(6, 6))
+            
+            # Pega os dados (se houver muitos itens, exibe os top 8 para não poluir a pizza)
+            dados_pizza = df.nlargest(8, col_valor) if len(df) > 8 else df
+            
+            labels = dados_pizza[col_servico].values
+            valores = dados_pizza[col_valor].values
+            
+            # Paleta de cores moderna e distinta
+            colors = plt.cm.tab10.colors[:len(labels)]
+            
+            ax.pie(
+                valores, 
+                labels=labels, 
+                autopct='%1.1f%%', 
+                startangle=140, 
+                colors=colors,
+                textprops={'fontsize': 9}
+            )
+            ax.axis('equal')  # Garante que a pizza seja desenhada como um círculo
+            
+            st.pyplot(fig)
         else:
-            st.info("Dados insuficientes para gráfico de linha.")
+            st.info("Dados insuficientes para gerar o gráfico de pizza.")
 
     with st.expander("🔍 Visualizar Tabela Completa de Serviços e Peças"):
         st.dataframe(df, use_container_width=True)
@@ -159,9 +179,9 @@ else:
     with col1:
         st.metric("Total de Serviços Cadastrados", "12 itens")
     with col2:
-        st.metric("Média de Preço dos Serviços", "R$ 207.08")
+        st.metric("Média de Preço dos Serviços", f"R$ 207.08")
     with col3:
-        st.metric("Valor Total do Portfólio", "R$ 2,485.00")
+        st.metric("Valor Total do Portfólio", f"R$ 2,485.00")
 
     st.markdown("---")
     c1, c2 = st.columns(2)
@@ -176,8 +196,13 @@ else:
         }, index=["Valor (R$)"]).T
         st.bar_chart(sample_data)
     with c2:
-        st.markdown("#### 📈 Distribuição de Custos (Comparativo)")
-        st.line_chart(sample_data)
+        st.markdown("#### 🥧 Distribuição de Custos (Gráfico de Pizza)")
+        fig, ax = plt.subplots(figsize=(6, 6))
+        sample_values = [80, 120, 150, 350, 450]
+        sample_labels = ["Troca de Óleo", "Pastilhas", "Alinhamento", "Correia", "Embreagem"]
+        ax.pie(sample_values, labels=sample_labels, autopct='%1.1f%%', startangle=140, colors=plt.cm.Pastel1.colors)
+        ax.axis('equal')
+        st.pyplot(fig)
 
 # ==========================================
 # 6. WIDGET DE CHAT FLUTUANTE / SUPORTE MECÂNICO
