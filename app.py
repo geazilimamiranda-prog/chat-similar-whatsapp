@@ -228,3 +228,24 @@ with st.container():
                          "input": RunnablePassthrough(),
                          "chat_history": lambda x: st.session_state.messages}
                         | prompt
+                        | llm
+                        | StrOutputParser()
+                    )
+                    answer = rag_chain.invoke(user_input)
+                else:
+                    prompt = ChatPromptTemplate.from_messages([
+                        ("system", persona),
+                        MessagesPlaceholder(variable_name="chat_history"),
+                        ("human", "{input}")
+                    ])
+                    chain = prompt | llm
+                    response = chain.invoke({
+                        "input": user_input,
+                        "chat_history": st.session_state.messages
+                    })
+                    answer = response.content
+            except Exception as e:
+                answer = f"❌ **Erro de comunicação com a Azure OpenAI:** `{e}`"
+
+        st.session_state.messages.append(AIMessage(content=answer))
+        st.rerun()
