@@ -93,7 +93,6 @@ def buscar_contexto_csv(df, query):
     if df is None or df.empty:
         return "Nenhuma base de dados carregada."
     
-    # Procura linhas que contenham termos da pergunta do usuário
     query_terms = query.lower().split()
     matched_rows = []
     
@@ -103,68 +102,82 @@ def buscar_contexto_csv(df, query):
             matched_rows.append(row_str)
             
     if matched_rows:
-        return "\n".join(matched_rows[:5])  # Retorna até 5 linhas relevantes
+        return "\n".join(matched_rows[:5])
     else:
-        # Se não achar específico, retorna um resumo geral do CSV
         return df.to_string(index=False)
 
 # ==========================================
-# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD)
+# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD ESPECÍFICO)
 # ==========================================
 st.markdown("## 🚗 Painel de Controle e Gestão da Oficina Mecânica")
 
+# Se o usuário carregou o CSV de serviços de oficina personalizado
 if st.session_state.df is not None:
     df = st.session_state.df
+    
+    # Identifica colunas relevantes do CSV de serviços gerado anteriormente
+    col_servico = "Tipo de Serviço" if "Tipo de Serviço" in df.columns else df.columns[0]
+    col_valor = "Valor do Serviço (R$)" if "Valor do Serviço (R$)" in df.columns else (df.select_dtypes(include=['number']).columns[0] if len(df.select_dtypes(include=['number']).columns) > 0 else None)
+
+    total_servicos = len(df)
+    ticket_medio = df[col_valor].mean() if col_valor and col_valor in df.columns else 0.0
+    soma_total = df[col_valor].sum() if col_valor and col_valor in df.columns else 0.0
+
     col1, col2, col3 = st.columns(3)
-    
-    total_ordens = len(df)
-    ticket_medio = df.select_dtypes(include=['number']).mean().mean() if not df.empty else 0.0
-    
     with col1:
-        st.metric("Ordens de Serviço", f"{total_ordens} O.S.")
+        st.metric("Total de Serviços Cadastrados", f"{total_servicos} itens")
     with col2:
-        st.metric("Ticket Médio (Reparos)", f"R$ {ticket_medio:,.2f}")
+        st.metric("Média de Preço dos Serviços", f"R$ {ticket_medio:,.2f}")
     with col3:
-        st.metric("Tempo Médio de Box", "4.5 h")
+        st.metric("Valor Total do Portfólio", f"R$ {soma_total:,.2f}")
 
     st.markdown("---")
     
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("#### Custo de Peças e Serviços por Código (R$)")
-        numeric_cols = df.select_dtypes(include=['number']).columns
-        if len(numeric_cols) > 0:
-            st.bar_chart(df[numeric_cols[0]])
+        st.markdown("#### 🛠️ Valor por Tipo de Serviço (R$)")
+        if col_valor and col_servico in df.columns:
+            # Gráfico indexado pelo nome do serviço para clareza absoluta
+            chart_data = df.set_index(col_servico)[[col_valor]]
+            st.bar_chart(chart_data)
         else:
-            st.info("O CSV não possui colunas numéricas para exibir o gráfico.")
+            st.bar_chart(df.select_dtypes(include=['number']))
             
     with c2:
-        st.markdown("#### Fluxo de Entrada por Categoria")
-        if len(numeric_cols) > 1:
-            st.line_chart(df[numeric_cols[:min(2, len(numeric_cols))]])
+        st.markdown("#### 📈 Distribuição de Custos (Comparativo)")
+        if col_valor and col_servico in df.columns:
+            st.line_chart(df.set_index(col_servico)[[col_valor]])
         else:
-            st.area_chart(df[numeric_cols[0]] if len(numeric_cols) > 0 else pd.Series([100, 250, 400]))
+            st.info("Dados insuficientes para gráfico de linha.")
+
+    with st.expander("🔍 Visualizar Tabela Completa de Serviços e Peças"):
+        st.dataframe(df, use_container_width=True)
+
 else:
+    # Dados padrão caso nenhum arquivo seja enviado
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Ordens de Serviço", "28 O.S.")
+        st.metric("Total de Serviços Cadastrados", "12 itens")
     with col2:
-        st.metric("Ticket Médio (Reparos)", "R$ 485.50")
+        st.metric("Média de Preço dos Serviços", "R$ 207.08")
     with col3:
-        st.metric("Tempo Médio de Box", "4.2 h")
+        st.metric("Valor Total do Portfólio", "R$ 2,485.00")
 
     st.markdown("---")
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("#### Custo de Peças e Serviços por Código (R$)")
+        st.markdown("#### 🛠️ Valor por Tipo de Serviço (R$)")
         sample_data = pd.DataFrame({
-            "Freios e Suspensão": [350, 600, 220, 800, 410], 
-            "Motor e Injeção": [900, 450, 1200, 750, 620]
-        })
+            "Troca de Óleo": 80, 
+            "Pastilhas de Freio": 120, 
+            "Alinhamento 3D": 150, 
+            "Correia Dentada": 350, 
+            "Embreagem": 450
+        }, index=["Valor (R$)"]).T
         st.bar_chart(sample_data)
     with c2:
-        st.markdown("#### Fluxo de Entrada por Categoria")
-        st.area_chart(pd.DataFrame({"Atendimentos": [5, 12, 8, 20, 15]}))
+        st.markdown("#### 📈 Distribuição de Custos (Comparativo)")
+        st.line_chart(sample_data)
 
 # ==========================================
 # 6. WIDGET DE CHAT FLUTUANTE / SUPORTE MECÂNICO
@@ -198,7 +211,6 @@ with st.container():
                     temperature=0.2
                 )
                 
-                # Busca contexto diretamente do CSV carregado
                 contexto_csv = buscar_contexto_csv(st.session_state.df, user_input)
                 
                 system_prompt = (
