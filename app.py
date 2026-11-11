@@ -22,7 +22,7 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS (LAYOUT DO WHATSAPP + BOTÕES)
+# 2. ESTILIZAÇÃO CSS (ESTILO WHATSAPP CENTRALIZADO)
 # ==========================================
 st.markdown("""
 <style>
@@ -39,32 +39,38 @@ st.markdown("""
         color: white;
     }
 
-    /* Estilo do Container do Chat do WhatsApp */
-    .whatsapp-container {
+    /* Container Principal do Chat Centralizado */
+    .chat-wrapper {
+        max-width: 800px;
+        margin: 0 auto;
         background-color: #efeae2;
-        border-radius: 10px;
-        padding: 15px;
+        border-radius: 12px 12px 0 0;
         border: 1px solid #ccc;
-        max-height: 500px;
-        overflow-y: auto;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
     .whatsapp-header {
         background-color: #075E54;
         color: white;
-        padding: 10px 15px;
-        border-radius: 8px 8px 0 0;
+        padding: 12px 20px;
+        border-radius: 12px 12px 0 0;
         font-weight: bold;
         display: flex;
         align-items: center;
         gap: 10px;
+        font-size: 16px;
+    }
+    .chat-scroll-area {
+        padding: 20px;
+        max-height: 450px;
+        overflow-y: auto;
     }
     .chat-bubble-user {
         background-color: #dcf8c6;
         color: #000;
         padding: 10px 14px;
         border-radius: 8px 0px 8px 8px;
-        margin: 5px 0;
-        max-width: 80%;
+        margin: 8px 0;
+        max-width: 75%;
         float: right;
         clear: both;
         box-shadow: 0 1px 1px rgba(0,0,0,0.1);
@@ -75,8 +81,8 @@ st.markdown("""
         color: #000;
         padding: 10px 14px;
         border-radius: 0px 8px 8px 8px;
-        margin: 5px 0;
-        max-width: 80%;
+        margin: 8px 0;
+        max-width: 75%;
         float: left;
         clear: both;
         box-shadow: 0 1px 1px rgba(0,0,0,0.1);
@@ -242,76 +248,78 @@ else:
         st.pyplot(fig)
 
 # ==========================================
-# 6. WIDGET DE CHAT ESTILO WHATSAPP
+# 6. SEÇÃO DE CHAT ESTILO WHATSAPP CENTRALIZADA
 # ==========================================
 st.markdown("---")
-st.sidebar.markdown("### 💬 Assistente Mecânico WhatsApp")
+st.markdown("<h3 style='text-align: center;'>💬 Atendimento e Diagnóstico Automotivo Online</h3>", unsafe_allow_html=True)
 
-with st.container():
-    st.markdown("---")
+# Centralizando o chat em uma coluna central com largura otimizada
+_, chat_col, _ = st.columns([1, 2.5, 1])
+
+with chat_col:
+    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
     
-    # Cabeçalho visual do WhatsApp
+    # Cabeçalho do WhatsApp
     st.markdown("""
         <div class="whatsapp-header">
-            <span>🟢</span> <span>Oficina Mecânica - Atendimento Online (WhatsApp)</span>
+            <span>🟢</span> <span>Oficina Mecânica - Suporte Online</span>
         </div>
     """, unsafe_allow_html=True)
     
-    # Caixa simulando o fundo de conversas do WhatsApp
-    with st.container():
-        st.markdown('<div class="whatsapp-container">', unsafe_allow_html=True)
-        
-        # Mensagem padrão de boas-vindas se o chat estiver vazio
-        if not st.session_state.messages:
-            st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo hoje?</div>', unsafe_allow_html=True)
+    # Área de rolagem das mensagens
+    st.markdown('<div class="chat-scroll-area">', unsafe_allow_html=True)
+    
+    if not st.session_state.messages:
+        st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo hoje?</div>', unsafe_allow_html=True)
 
-        for msg in st.session_state.messages:
-            if isinstance(msg, HumanMessage):
-                st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
-                
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Input do Chat
-    if user_input := st.chat_input("Digite sua mensagem como no WhatsApp..."):
-        st.session_state.messages.append(HumanMessage(content=user_input))
-        
-        if not azure_api_key or not azure_endpoint:
-            answer = "⚠️ Por favor, configure sua API Key e Endpoint da Azure na barra lateral para falar comigo."
+    for msg in st.session_state.messages:
+        if isinstance(msg, HumanMessage):
+            st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
         else:
-            try:
-                llm = AzureChatOpenAI(
-                    azure_deployment=azure_deployment.strip(),
-                    azure_endpoint=azure_endpoint.strip(),
-                    api_key=azure_api_key.strip(),
-                    api_version=azure_api_version,
-                    temperature=0.2
-                )
-                
-                contexto_csv = buscar_contexto_csv(st.session_state.df, user_input)
-                
-                system_prompt = (
-                    f"{persona}\n\n"
-                    f"Utilize os dados da tabela da oficina abaixo para responder de forma direta e amigável:\n"
-                    f"--- CONTEXTO DO CSV ---\n{contexto_csv}\n------------------------"
-                )
-                
-                prompt = ChatPromptTemplate.from_messages([
-                    ("system", system_prompt),
-                    MessagesPlaceholder(variable_name="chat_history"),
-                    ("human", "{input}")
-                ])
-                
-                chain = prompt | llm | StrOutputParser()
-                
-                answer = chain.invoke({
-                    "input": user_input,
-                    "chat_history": st.session_state.messages
-                })
-                
-            except Exception as e:
-                answer = f"❌ Erro de conexão com a Azure OpenAI: `{e}`"
+            st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
+            
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        st.session_state.messages.append(AIMessage(content=answer))
-        st.rerun()
+# Entrada do chat (fixa e centralizada nativamente na parte inferior pelo Streamlit)
+if user_input := st.chat_input("Digite sua mensagem para a oficina..."):
+    st.session_state.messages.append(HumanMessage(content=user_input))
+    
+    if not azure_api_key or not azure_endpoint:
+        answer = "⚠️ Por favor, configure sua API Key e Endpoint da Azure na barra lateral para falar comigo."
+    else:
+        try:
+            llm = AzureChatOpenAI(
+                azure_deployment=azure_deployment.strip(),
+                azure_endpoint=azure_endpoint.strip(),
+                api_key=azure_api_key.strip(),
+                api_version=azure_api_version,
+                temperature=0.2
+            )
+            
+            contexto_csv = buscar_contexto_csv(st.session_state.df, user_input)
+            
+            system_prompt = (
+                f"{persona}\n\n"
+                f"Utilize os dados da tabela da oficina abaixo para responder de forma direta e amigável:\n"
+                f"--- CONTEXTO DO CSV ---\n{contexto_csv}\n------------------------"
+            )
+            
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", system_prompt),
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("human", "{input}")
+            ])
+            
+            chain = prompt | llm | StrOutputParser()
+            
+            answer = chain.invoke({
+                "input": user_input,
+                "chat_history": st.session_state.messages
+            })
+            
+        except Exception as e:
+            answer = f"❌ Erro de conexão com a Azure OpenAI: `{e}`"
+
+    st.session_state.messages.append(AIMessage(content=answer))
+    st.rerun()
