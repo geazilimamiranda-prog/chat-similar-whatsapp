@@ -22,7 +22,7 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ==========================================
-# 2. ESTILIZAÇÃO CSS (WHATSAPP & LAYOUT)
+# 2. ESTILIZAÇÃO CSS (JANELA FLUTUANTE ESTILO WHATSAPP NA PARTE INFERIOR)
 # ==========================================
 st.markdown("""
 <style>
@@ -39,29 +39,34 @@ st.markdown("""
         color: white;
     }
 
-    /* Container Principal do Chat do WhatsApp Centralizado */
-    .whatsapp-page-wrapper {
-        max-width: 850px;
-        margin: 0 auto;
+    /* Janela Flutuante Estilo WhatsApp Centralizada na Base */
+    .whatsapp-floating-window {
+        position: fixed;
+        bottom: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 600px;
         background-color: #efeae2;
-        border-radius: 15px;
-        border: 1px solid #d4d0c7;
-        box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+        border-radius: 12px 12px 8px 8px;
+        border: 1px solid #b3aca5;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        z-index: 99999;
         overflow: hidden;
     }
-    .whatsapp-header {
+    .whatsapp-header-float {
         background-color: #075E54;
         color: white;
-        padding: 15px 20px;
+        padding: 10px 15px;
         font-weight: bold;
         display: flex;
         align-items: center;
-        gap: 12px;
-        font-size: 18px;
+        gap: 10px;
+        font-size: 15px;
     }
-    .whatsapp-scroll-area {
-        padding: 25px;
-        height: 500px;
+    .whatsapp-scroll-float {
+        padding: 15px;
+        height: 350px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
@@ -69,36 +74,36 @@ st.markdown("""
     .chat-bubble-user {
         background-color: #dcf8c6;
         color: #000;
-        padding: 12px 16px;
-        border-radius: 10px 0px 10px 10px;
-        margin: 6px 0;
+        padding: 10px 14px;
+        border-radius: 8px 0px 8px 8px;
+        margin: 5px 0;
         max-width: 75%;
         align-self: flex-end;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        font-size: 15px;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        font-size: 14px;
         word-wrap: break-word;
     }
     .chat-bubble-ai {
         background-color: #ffffff;
         color: #000;
-        padding: 12px 16px;
-        border-radius: 0px 10px 10px 10px;
-        margin: 6px 0;
+        padding: 10px 14px;
+        border-radius: 0px 8px 8px 8px;
+        margin: 5px 0;
         max-width: 75%;
         align-self: flex-start;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        font-size: 15px;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        font-size: 14px;
         word-wrap: break-word;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. BARRA LATERAL (MENU DE NAVEGAÇÃO E CONFIGURAÇÕES)
+# 3. BARRA LATERAL (MENU E CREDENCIAIS)
 # ==========================================
 with st.sidebar:
     st.markdown("## 🧭 Navegação")
-    menu = st.radio("Escolha a Página:", ["📊 Painel de Controle (Dashboard)", "💬 Atendimento WhatsApp (IA)"])
+    menu = st.radio("Escolha a Página:", ["📊 Painel de Controle (Dashboard)", "💬 Janela Flutuante WhatsApp (IA)"])
 
     st.markdown("---")
     st.markdown("### 🔑 Credenciais Azure OpenAI:")
@@ -228,9 +233,9 @@ if menu == "📊 Painel de Controle (Dashboard)":
         with col1:
             st.metric("Total de Serviços Cadastrados", "12 itens")
         with col2:
-            st.metric("Média de Preço dos Serviços", "R$ 207.08")
+            st.metric("Média de Preço dos Serviços", f"R$ 207.08")
         with col3:
-            st.metric("Valor Total do Portfólio", "R$ 2,485.00")
+            st.metric("Valor Total do Portfólio", f"R$ 2,485.00")
 
         st.markdown("---")
         c1, c2 = st.columns(2)
@@ -253,39 +258,36 @@ if menu == "📊 Painel de Controle (Dashboard)":
             ax.axis('equal')
             st.pyplot(fig)
 
-elif menu == "💬 Atendimento WhatsApp (IA)":
-    st.markdown("<h2 style='text-align: center;'>💬 Atendimento e Diagnóstico Automotivo via WhatsApp</h2>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+elif menu == "💬 Janela Flutuante WhatsApp (IA)":
+    st.markdown("## 💬 Atendimento e Diagnóstico Automotivo via Janela Flutuante")
+    st.markdown("---")
+    st.info("💡 A janela de chat flutuante estilo WhatsApp está ativa na parte inferior central da tela. Digite sua mensagem abaixo para interagir.")
 
-    # Layout centralizado estilo página separada do WhatsApp
-    _, chat_col, _ = st.columns([0.5, 3, 0.5])
+    # Renderiza a janela flutuante baseada em HTML/CSS na parte inferior central
+    chat_html = f"""
+    <div class="whatsapp-floating-window">
+        <div class="whatsapp-header-float">
+            <span>🟢</span> <span>Oficina Mecânica - Assistente WhatsApp (Flutuante)</span>
+        </div>
+        <div class="whatsapp-scroll-float">
+    """
+    
+    if not st.session_state.messages:
+        chat_html += '<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo ou orçamento hoje?</div>'
 
-    with chat_col:
-        st.markdown('<div class="whatsapp-page-wrapper">', unsafe_allow_html=True)
-        
-        # Cabeçalho verde do WhatsApp
-        st.markdown("""
-            <div class="whatsapp-header">
-                <span>🟢</span> <span>Oficina Mecânica - Suporte Online (WhatsApp)</span>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # Área de rolagem das mensagens
-        st.markdown('<div class="whatsapp-scroll-area">', unsafe_allow_html=True)
-        
-        if not st.session_state.messages:
-            st.markdown('<div class="chat-bubble-ai">🤖 Olá! Sou o assistente virtual da oficina via WhatsApp. Como posso ajudar com seu veículo ou orçamento hoje?</div>', unsafe_allow_html=True)
+    for msg in st.session_state.messages:
+        if isinstance(msg, HumanMessage):
+            chat_html += f'<div class="chat-bubble-user">{msg.content}</div>'
+        else:
+            chat_html += f'<div class="chat-bubble-ai">{msg.content}</div>'
+            
+    chat_html += """
+        </div>
+    </div>
+    """
+    st.markdown(chat_html, unsafe_allow_html=True)
 
-        for msg in st.session_state.messages:
-            if isinstance(msg, HumanMessage):
-                st.markdown(f'<div class="chat-bubble-user">{msg.content}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="chat-bubble-ai">{msg.content}</div>', unsafe_allow_html=True)
-                
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Input do chat (fixo nativamente na parte inferior pelo Streamlit)
+    # Input do chat nativo do Streamlit posicionado na parte inferior para enviar as mensagens
     if user_input := st.chat_input("Digite sua mensagem para o WhatsApp da oficina..."):
         st.session_state.messages.append(HumanMessage(content=user_input))
         
