@@ -45,42 +45,48 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. BARRA LATERAL (CONFIGURAÇÕES)
+# 3. BARRA LATERAL (CONFIGURAÇÕES DA AZURE)
 # ==========================================
 with st.sidebar:
-    st.markdown("### Deployment / Modelo:")
-    azure_deployment = st.text_input("Deployment", value="gpt-4.1-mini", label_visibility="collapsed")
-    
+    st.markdown("### 🔑 Credenciais Azure OpenAI:")
     azure_api_key = st.text_input("Azure OpenAI API Key", type="password", value=os.getenv("AZURE_OPENAI_API_KEY", ""))
-    azure_endpoint = st.text_input("Azure Endpoint", value=os.getenv("AZURE_OPENAI_ENDPOINT", ""))
+    azure_endpoint = st.text_input("Azure Endpoint", value=os.getenv("AZURE_OPENAI_ENDPOINT", "https://"), placeholder="https://seu-recurso.openai.azure.com/")
+    
+    st.markdown("### Deployment / Modelo:")
+    azure_deployment = st.text_input("Deployment", value="gpt-4.1-mini")
+    
     azure_api_version = "2024-02-15-preview"
     embedding_deployment = "text-embedding-ada-002"
 
     st.markdown("---")
-    st.markdown("### Persona da IA (Oficina):")
+    st.markdown("### 🎭 Persona da IA (Oficina):")
     default_persona = (
         "Você é um consultor técnico sênior de uma oficina mecânica automotiva. "
         "Responda de forma ágil, clara e cordial. Consulte sempre a base de dados de ordens de serviço, "
         "peças e manutenções para fornecer orçamentos precisos, diagnósticos e prazos."
     )
-    persona = st.text_area("Persona", value=default_persona, height=120, label_visibility="collapsed")
+    persona = st.text_area("Persona", value=default_persona, height=120)
 
     st.markdown("---")
-    st.markdown("### Upload da Base (CSV da Oficina):")
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"], label_visibility="collapsed")
+    st.markdown("### 📁 Upload da Base (CSV da Oficina):")
+    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
     if uploaded_file:
-        st.success(f"Carregado: {uploaded_file.name}")
         try:
             st.session_state.df = pd.read_csv(uploaded_file)
+            st.success(f"Carregado: {uploaded_file.name}")
         except Exception as e:
             st.error(f"Erro ao ler CSV: {e}")
 
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # Botão de Conexão
     if st.button("🚀 Conectar IA", use_container_width=True):
-        st.session_state.chat_active = True
-        st.success("IA da Oficina Conectada!")
+        if not azure_api_key or not azure_endpoint:
+            st.error("Preencha a API Key e o Endpoint da Azure!")
+        else:
+            st.session_state.chat_active = True
+            st.success("IA da Oficina Conectada com Sucesso!")
 
     novo_chat = st.checkbox("Novo Chat")
     if novo_chat:
@@ -118,7 +124,7 @@ if st.session_state.df is not None and st.session_state.vectorstore is None and 
     )
 
 # ==========================================
-# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD DA OFICINA)
+# 5. PAINEL ANALÍTICO PRINCIPAL (DASHBOARD)
 # ==========================================
 st.markdown("## 🚗 Painel de Controle e Gestão da Oficina Mecânica")
 
@@ -146,86 +152,3 @@ if st.session_state.df is not None:
             st.bar_chart(df[numeric_cols[0]])
         else:
             st.info("O CSV não possui colunas numéricas para exibir o gráfico.")
-            
-    with c2:
-        st.markdown("#### Fluxo de Entrada por Categoria (Motor / Suspensão / Freios)")
-        if len(numeric_cols) > 1:
-            st.line_chart(df[numeric_cols[:min(2, len(numeric_cols))]])
-        else:
-            st.area_chart(df[numeric_cols[0]] if len(numeric_cols) > 0 else pd.Series([100, 250, 400]))
-else:
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Ordens de Serviço", "28 O.S.")
-    with col2:
-        st.metric("Ticket Médio (Reparos)", "R$ 485.50")
-    with col3:
-        st.metric("Tempo Médio de Box", "4.2 h")
-
-    st.markdown("---")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("#### Custo de Peças e Serviços por Código (R$)")
-        sample_data = pd.DataFrame({
-            "Freios e Suspensão": [350, 600, 220, 800, 410], 
-            "Motor e Injeção": [900, 450, 1200, 750, 620]
-        })
-        st.bar_chart(sample_data)
-    with c2:
-        st.markdown("#### Fluxo de Entrada por Categoria")
-        st.area_chart(pd.DataFrame({"Atendimentos": [5, 12, 8, 20, 15]}))
-
-# ==========================================
-# 6. WIDGET DE CHAT FLUTUANTE / SUPORTE MECÂNICO
-# ==========================================
-st.markdown("---")
-st.sidebar.markdown("### 💬 Assistente Mecânico IA")
-
-with st.container():
-    st.markdown("---")
-    st.subheader("🛠️ Atendimento e Diagnóstico Automotivo Online")
-    
-    chat_container = st.container()
-    with chat_container:
-        for msg in st.session_state.messages:
-            role = "user" if isinstance(msg, HumanMessage) else "assistant"
-            with st.chat_message(role):  # <--- CORRIGIDO AQUI (st.chat_message)
-                st.markdown(msg.content)
-
-    if user_input := st.chat_input("Digite o sintoma do veículo, código de falha (OBD) ou peça..."):
-        st.session_state.messages.append(HumanMessage(content=user_input))
-        
-        answer = "Olá! Insira suas credenciais da Azure OpenAI na barra lateral e conecte a IA para consultar o manual técnico e as ordens de serviço da oficina."
-        
-        if azure_api_key and st.session_state.vectorstore:
-            try:
-                llm = AzureChatOpenAI(
-                    azure_deployment=azure_deployment,
-                    azure_endpoint=azure_endpoint,
-                    api_key=azure_api_key,
-                    api_version=azure_api_version,
-                    temperature=0.2
-                )
-                retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 4})
-                
-                system_prompt = f"{persona}\n\nContexto da Oficina:\n{{context}}"
-                prompt = ChatPromptTemplate.from_messages([
-                    ("system", system_prompt),
-                    MessagesPlaceholder(variable_name="chat_history"),
-                    ("human", "{input}")
-                ])
-                
-                rag_chain = (
-                    {"context": retriever | (lambda docs: "\n\n".join(d.page_content for d in docs)), 
-                     "input": RunnablePassthrough(),
-                     "chat_history": lambda x: st.session_state.messages}
-                    | prompt
-                    | llm
-                    | StrOutputParser()
-                )
-                answer = rag_chain.invoke(user_input)
-            except Exception as e:
-                answer = f"Erro ao processar consulta na Azure: {e}"
-
-        st.session_state.messages.append(AIMessage(content=answer))
-        st.rerun()
